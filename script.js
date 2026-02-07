@@ -1220,6 +1220,15 @@ function isSafariBrowser() {
   return hasSafari && !excluded;
 }
 
+function isAndroidDevice() {
+  return /android/i.test(navigator.userAgent || '');
+}
+
+function isAndroidInstallFriendlyBrowser() {
+  const ua = navigator.userAgent || '';
+  return /chrome|edg|edga|edgios|samsungbrowser/i.test(ua);
+}
+
 function isStandaloneDisplay() {
   const mql = typeof window.matchMedia === 'function'
     && window.matchMedia('(display-mode: standalone)').matches;
@@ -1246,6 +1255,12 @@ function updateInstallEntry() {
   if (isIOSDevice() && isSafariBrowser()) {
     dom.installAppBtn.textContent = '安装指引';
     dom.installTip.textContent = '打开“分享”，再选“添加到主屏幕”。';
+    return;
+  }
+
+  if (isAndroidDevice() && !isAndroidInstallFriendlyBrowser()) {
+    dom.installAppBtn.textContent = '安装指引';
+    dom.installTip.textContent = '请用 Chrome 或 Edge 打开，再选择“安装应用”。';
     return;
   }
 
@@ -1279,6 +1294,11 @@ async function handleInstallApp() {
 
   if (isIOSDevice() && isSafariBrowser()) {
     alert('请在 Safari 点击“分享”，然后选择“添加到主屏幕”。');
+    return;
+  }
+
+  if (isAndroidDevice() && !isAndroidInstallFriendlyBrowser()) {
+    alert('请用 Chrome 或 Edge 打开当前页面，再在菜单中选择“安装应用”。');
     return;
   }
 

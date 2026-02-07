@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const APP_SHELL_CACHE = `vocab-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `vocab-runtime-${CACHE_VERSION}`;
 

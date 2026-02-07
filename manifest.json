@@ -2,17 +2,40 @@
   "name": "背单词 - Vocab Flashcard",
   "short_name": "背单词",
   "description": "手机端背单词应用，支持闪卡、图片选义、听音选义和拼写模式。",
-  "start_url": "./index.html",
-  "scope": "./",
+  "id": "/?source=vocab-pwa",
+  "start_url": "/?source=vocab-pwa",
+  "scope": "/",
   "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui",
+    "browser"
+  ],
   "orientation": "portrait",
   "lang": "zh-CN",
+  "categories": [
+    "education",
+    "productivity"
+  ],
+  "prefer_related_applications": false,
   "theme_color": "#0e7490",
   "background_color": "#f2f2f7",
   "icons": [
     {
       "src": "./icon.svg",
       "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon.svg",
+      "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }
