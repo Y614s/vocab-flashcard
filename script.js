@@ -35,6 +35,7 @@ let spellingInput = '';
 let spellingTarget = '';
 let spellingHintCount = 0;
 let pendingPlan = null;
+let deferredInstallPrompt = null;
 let sessionResult = {
   startAt: 0,
   endAt: 0,
@@ -73,6 +74,9 @@ const dom = {
   exportDataBtn: document.getElementById('exportDataBtn'),
   importDataBtn: document.getElementById('importDataBtn'),
   backupFileInput: document.getElementById('backupFileInput'),
+  installEntry: document.getElementById('installEntry'),
+  installTip: document.getElementById('installTip'),
+  installAppBtn: document.getElementById('installAppBtn'),
   modeFlashcard: document.getElementById('modeFlashcard'),
   modePicture: document.getElementById('modePicture'),
   modeListening: document.getElementById('modeListening'),
@@ -1154,6 +1158,7 @@ function bindEvents() {
   if (dom.exportDataBtn) dom.exportDataBtn.addEventListener('click', exportBackup);
   if (dom.importDataBtn) dom.importDataBtn.addEventListener('click', triggerImportBackup);
   if (dom.backupFileInput) dom.backupFileInput.addEventListener('change', handleBackupFileChange);
+  if (dom.installAppBtn) dom.installAppBtn.addEventListener('click', handleInstallApp);
 
   dom.backBtn.addEventListener('click', showDashboard);
   dom.pictureBackBtn.addEventListener('click', showDashboard);
@@ -1200,6 +1205,106 @@ function bindEvents() {
   });
 }
 
+function isMobileDevice() {
+  return /android|iphone|ipad|ipod/i.test(navigator.userAgent || '');
+}
+
+function isIOSDevice() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent || '');
+}
+
+function isSafariBrowser() {
+  const ua = navigator.userAgent || '';
+  const hasSafari = /safari/i.test(ua);
+  const excluded = /crios|fxios|edgios|opr|opera|chrome|android/i.test(ua);
+  return hasSafari && !excluded;
+}
+
+function isStandaloneDisplay() {
+  const mql = typeof window.matchMedia === 'function'
+    && window.matchMedia('(display-mode: standalone)').matches;
+  return mql || Boolean(window.navigator.standalone);
+}
+
+function updateInstallEntry() {
+  if (!dom.installEntry || !dom.installAppBtn || !dom.installTip) return;
+
+  if (!isMobileDevice() || isStandaloneDisplay()) {
+    dom.installEntry.classList.add('hidden');
+    return;
+  }
+
+  dom.installEntry.classList.remove('hidden');
+  dom.installAppBtn.disabled = false;
+
+  if (deferredInstallPrompt) {
+    dom.installAppBtn.textContent = '下载 App';
+    dom.installTip.textContent = '点击即可安装到手机桌面。';
+    return;
+  }
+
+  if (isIOSDevice() && isSafariBrowser()) {
+    dom.installAppBtn.textContent = '安装指引';
+    dom.installTip.textContent = '打开“分享”，再选“添加到主屏幕”。';
+    return;
+  }
+
+  dom.installAppBtn.textContent = '安装指引';
+  dom.installTip.textContent = '在浏览器菜单选择“安装应用”或“添加到主屏幕”。';
+}
+
+async function handleInstallApp() {
+  if (isStandaloneDisplay()) {
+    updateInstallEntry();
+    return;
+  }
+
+  if (deferredInstallPrompt) {
+    const promptEvent = deferredInstallPrompt;
+    deferredInstallPrompt = null;
+    promptEvent.prompt();
+    try {
+      const choice = await promptEvent.userChoice;
+      if (choice && choice.outcome === 'accepted') {
+        dom.installTip.textContent = '已开始安装，请到手机桌面查看。';
+      } else {
+        dom.installTip.textContent = '已取消安装，你可以稍后再试。';
+      }
+    } catch (e) {
+      dom.installTip.textContent = '安装弹窗被中断，请稍后重试。';
+    }
+    updateInstallEntry();
+    return;
+  }
+
+  if (isIOSDevice() && isSafariBrowser()) {
+    alert('请在 Safari 点击“分享”，然后选择“添加到主屏幕”。');
+    return;
+  }
+
+  alert('请在浏览器菜单选择“安装应用”或“添加到主屏幕”。');
+}
+
+function registerInstallPrompt() {
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    updateInstallEntry();
+  });
+
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    updateInstallEntry();
+  });
+
+  window.addEventListener('pageshow', updateInstallEntry);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) updateInstallEntry();
+  });
+
+  updateInstallEntry();
+}
+
 function registerSW() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
@@ -1214,6 +1319,7 @@ function init() {
   bindEvents();
   showDashboard();
   if ('speechSynthesis' in window) window.speechSynthesis.getVoices();
+  registerInstallPrompt();
   registerSW();
 }
 
