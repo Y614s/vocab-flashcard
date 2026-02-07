@@ -1,0 +1,20 @@
+{
+  "name": "背单词 - Vocab Flashcard",
+  "short_name": "背单词",
+  "description": "手机端背单词应用，支持闪卡、图片选义、听音选义和拼写模式。",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "zh-CN",
+  "theme_color": "#0e7490",
+  "background_color": "#f2f2f7",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

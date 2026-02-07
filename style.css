@@ -1,0 +1,1547 @@
+/* ========================================
+   Apple/iOS Design System
+   ======================================== */
+:root {
+    /* iOS System Colors (Light Mode Default) */
+    --ios-bg-primary: #F2F2F7;
+    --ios-bg-secondary: #FFFFFF;
+    --ios-bg-tertiary: #E5E5EA;
+
+    --ios-blue: #007AFF;
+    --ios-green: #34C759;
+    --ios-red: #FF3B30;
+    --ios-orange: #FF9500;
+    --ios-yellow: #FFCC00;
+    --ios-purple: #AF52DE;
+    --ios-pink: #FF2D55;
+    --ios-teal: #5AC8FA;
+    --ios-indigo: #5856D6;
+
+    --ios-text-primary: #000000;
+    --ios-text-secondary: #8E8E93;
+    --ios-text-tertiary: #C7C7CC;
+
+    --ios-separator: #C6C6C8;
+
+    /* Mapping to App Variables */
+    --bg-primary: var(--ios-bg-primary);
+    --bg-secondary: var(--ios-bg-secondary);
+    --bg-tertiary: var(--ios-bg-tertiary);
+
+    --text-primary: var(--ios-text-primary);
+    --text-secondary: var(--ios-text-secondary);
+    --text-muted: var(--ios-text-secondary);
+    --text-accent: var(--ios-blue);
+
+    --btn-unknown: var(--ios-red);
+    --btn-fuzzy: var(--ios-orange);
+    --btn-known: var(--ios-green);
+
+    --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    --modal-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+
+    /* Metrics */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 20px;
+    --radius-full: 9999px;
+
+    --transition-fast: 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+    --transition-normal: 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* Dark Mode Support via Media Query */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --ios-bg-primary: #000000;
+        --ios-bg-secondary: #1C1C1E;
+        --ios-bg-tertiary: #2C2C2E;
+
+        --ios-text-primary: #FFFFFF;
+        --ios-text-secondary: #8E8E93;
+        --ios-text-tertiary: #48484A;
+
+        --ios-separator: #38383A;
+
+        --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        --modal-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.5;
+    overflow-x: hidden;
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+button {
+    font-family: inherit;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    background: none;
+}
+
+/* ========================================
+   Core Structure
+   ======================================== */
+.view {
+    min-height: 100vh;
+    padding: var(--spacing-lg) var(--spacing-md);
+    max-width: 600px;
+    margin: 0 auto;
+    position: relative;
+    padding-bottom: 120px;
+    /* Space for bottom actions */
+}
+
+.view.hidden {
+    display: none !important;
+}
+
+/* 通用隐藏类 */
+.hidden {
+    display: none !important;
+}
+
+.section-title {
+    font-size: 13px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin: var(--spacing-xl) 0 var(--spacing-sm) var(--spacing-sm);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+/* ========================================
+   Common Components
+   ======================================== */
+/* Cards & Lists (Inset Grouped Style) */
+.ios-card,
+.book-cards,
+.mode-cards {
+    background-color: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    /* transition: transform 0.2s ease, box-shadow 0.2s ease; */
+}
+
+.back-btn {
+    position: absolute;
+    top: var(--spacing-md);
+    left: var(--spacing-md);
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-full);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    transition: background 0.2s;
+}
+
+.back-btn:active {
+    background: var(--text-secondary);
+    opacity: 0.7;
+}
+
+.back-btn svg {
+    width: 24px;
+    height: 24px;
+}
+
+/* Progress Bar */
+.progress-bar {
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-full);
+    margin: 60px auto var(--spacing-sm);
+    width: 80%;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--ios-blue);
+    border-radius: var(--radius-full);
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ========================================
+   Dashboard
+   ======================================== */
+.view-dashboard {
+    padding-top: 60px;
+}
+
+.app-title {
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: var(--spacing-xs);
+    padding-left: var(--spacing-sm);
+}
+
+.current-plan {
+    font-size: 17px;
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-lg);
+    padding-left: var(--spacing-sm);
+}
+
+/* Book Selection */
+.book-cards {
+    display: flex;
+    flex-direction: column;
+}
+
+.book-card {
+    padding: var(--spacing-md);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    position: relative;
+    border-bottom: 1px solid var(--ios-separator);
+    transition: background 0.2s;
+}
+
+.book-card:last-child {
+    border-bottom: none;
+}
+
+.book-card:active {
+    background: var(--bg-tertiary);
+}
+
+.book-card.selected .book-name {
+    color: var(--ios-blue);
+}
+
+.book-card.selected .book-check {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.book-icon {
+    font-size: 24px;
+    width: 32px;
+    text-align: center;
+}
+
+.book-info {
+    flex: 1;
+}
+
+.book-name {
+    font-size: 17px;
+    font-weight: 400;
+    color: var(--text-primary);
+}
+
+.book-meta {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+.book-check {
+    color: var(--ios-blue);
+    font-weight: 600;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all 0.2s ease;
+}
+
+/* Mode Selection (Grid) */
+.mode-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    /* Separator lines */
+    background: var(--ios-separator);
+    border: none;
+}
+
+.mode-card {
+    background: var(--bg-secondary);
+    padding: var(--spacing-lg) var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: var(--spacing-sm);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.mode-card:active {
+    background: var(--bg-tertiary);
+}
+
+.mode-card.selected {
+    background: var(--bg-secondary);
+    position: relative;
+}
+
+.mode-card.selected::after {
+    content: '';
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 8px;
+    height: 8px;
+    background: var(--ios-blue);
+    border-radius: 50%;
+}
+
+.mode-icon {
+    font-size: 32px;
+    margin-bottom: var(--spacing-xs);
+}
+
+.mode-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.mode-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+/* Stats Section (Widget Style) */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.stat-item {
+    background: var(--bg-secondary);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-lg);
+    text-align: center;
+    box-shadow: var(--card-shadow);
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    margin-top: 4px;
+}
+
+/* Settings Slider */
+.settings-section {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-md) var(--spacing-lg);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.setting-label {
+    font-size: 15px;
+    font-weight: 500;
+}
+
+.slider-container {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    flex: 1;
+    margin-left: var(--spacing-lg);
+}
+
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    background: var(--bg-tertiary);
+    border-radius: 2px;
+    outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #FFFFFF;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    border: 0.5px solid rgba(0, 0, 0, 0.04);
+}
+
+/* Start Button (Floating Pill) */
+.start-btn {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 400px;
+    height: 56px;
+    background: var(--ios-blue);
+    color: white;
+    border-radius: 28px;
+    font-size: 17px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    box-shadow: 0 8px 20px rgba(0, 122, 255, 0.3);
+    z-index: 1000;
+    transition: transform 0.2s, background 0.2s;
+}
+
+.start-btn:active {
+    transform: translateX(-50%) scale(0.96);
+    background: #0062CC;
+}
+
+.start-btn-icon {
+    font-size: 18px;
+}
+
+/* ========================================
+   Flashcard View
+   ======================================== */
+.view-flashcard {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.view-flashcard .container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding-top: 60px;
+}
+
+/* 3D 翻转卡片容器 */
+.card {
+    perspective: 1000px;
+    margin: 20px 0;
+    flex: 1;
+    min-height: 300px;
+    cursor: pointer;
+}
+
+.card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 300px;
+    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-style: preserve-3d;
+}
+
+.card.flipped .card-inner {
+    transform: rotateY(180deg);
+}
+
+.card-face {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--card-shadow);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px var(--spacing-lg);
+}
+
+.card-front {
+    z-index: 2;
+}
+
+.card-back {
+    transform: rotateY(180deg);
+    z-index: 1;
+    overflow-y: auto;
+    justify-content: flex-start;
+    padding-top: 40px;
+}
+
+/* 卡片飞出动画 */
+.card.fly-left .card-inner {
+    animation: flyLeft 0.4s ease forwards;
+}
+
+.card.fly-right .card-inner {
+    animation: flyRight 0.4s ease forwards;
+}
+
+.card.entering .card-inner {
+    animation: enterCard 0.4s ease;
+}
+
+@keyframes flyLeft {
+    to {
+        transform: translateX(-150%) rotate(-15deg);
+        opacity: 0;
+    }
+}
+
+@keyframes flyRight {
+    to {
+        transform: translateX(150%) rotate(15deg);
+        opacity: 0;
+    }
+}
+
+@keyframes enterCard {
+    from {
+        transform: translateY(50px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* 卡片内容样式 */
+.word {
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-sm);
+    letter-spacing: -0.5px;
+}
+
+.phonetic {
+    font-family: "Menlo", monospace;
+    color: var(--text-secondary);
+    font-size: 16px;
+    margin-bottom: var(--spacing-md);
+    background: var(--bg-tertiary);
+    padding: 4px 12px;
+    border-radius: 12px;
+}
+
+.hint-text {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-top: var(--spacing-lg);
+}
+
+.meaning {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-lg);
+    text-align: center;
+    line-height: 1.4;
+}
+
+.divider {
+    width: 60px;
+    height: 2px;
+    background: var(--bg-tertiary);
+    margin: var(--spacing-md) 0;
+}
+
+.mnemonic,
+.etymology,
+.example {
+    width: 100%;
+    text-align: left;
+    margin-bottom: var(--spacing-md);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.field-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+    display: block;
+    margin-bottom: 4px;
+}
+
+.field-content {
+    color: var(--text-primary);
+    display: block;
+}
+
+/* 旧样式兼容 */
+.word-card {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    padding: 40px var(--spacing-lg);
+    text-align: center;
+    box-shadow: var(--card-shadow);
+    flex: 1;
+    margin: 20px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    cursor: default;
+}
+
+.word-text {
+    font-size: 40px;
+    font-weight: 700;
+    margin-bottom: var(--spacing-sm);
+    letter-spacing: -0.5px;
+}
+
+.word-phonetic {
+    font-family: "Menlo", monospace;
+    color: var(--ios-text-secondary);
+    font-size: 17px;
+    margin-bottom: var(--spacing-md);
+    background: var(--bg-tertiary);
+    padding: 4px 12px;
+    border-radius: 12px;
+    display: inline-block;
+}
+
+.play-btn {
+    width: 44px;
+    height: 44px;
+    background: var(--ios-blue);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: var(--spacing-md) auto;
+    font-size: 20px;
+    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+}
+
+.word-meaning {
+    font-size: 20px;
+    font-weight: 500;
+    margin-bottom: var(--spacing-lg);
+    line-height: 1.4;
+}
+
+.word-example {
+    font-size: 15px;
+    color: var(--ios-text-secondary);
+    text-align: left;
+    background: var(--bg-tertiary);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    width: 100%;
+}
+
+/* 按钮组 */
+.btn-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--bg-primary);
+    padding-bottom: max(var(--spacing-md), env(safe-area-inset-bottom));
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.btn-icon {
+    font-size: 18px;
+    display: block;
+}
+
+.btn-text {
+    font-size: 12px;
+    display: block;
+    margin-top: 2px;
+}
+
+.action-area {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: var(--spacing-md);
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+.status-btn {
+    height: 56px;
+    border-radius: var(--radius-lg);
+    font-size: 16px;
+    font-weight: 600;
+    background: var(--bg-secondary);
+    border: 1px solid transparent;
+    transition: all 0.2s;
+}
+
+.btn-unknown {
+    color: var(--ios-red);
+    border-color: rgba(255, 59, 48, 0.2);
+}
+
+.btn-fuzzy {
+    color: var(--ios-orange);
+    border-color: rgba(255, 149, 0, 0.2);
+}
+
+.btn-known {
+    color: var(--ios-green);
+    border-color: rgba(52, 199, 89, 0.2);
+}
+
+.status-btn:active {
+    transform: scale(0.96);
+    background: var(--bg-tertiary);
+}
+
+/* ========================================
+   Picture Mode (Grid Style)
+   ======================================== */
+.picture-word-area {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.picture-word {
+    font-size: 34px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.picture-audio-btn {
+    width: 40px;
+    height: 40px;
+    background: var(--bg-secondary);
+    border-radius: 50%;
+    color: var(--ios-blue);
+    margin-top: 10px;
+    box-shadow: var(--card-shadow);
+}
+
+.picture-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-md);
+}
+
+.picture-option {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg) var(--spacing-sm);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+    box-shadow: var(--card-shadow);
+    transition: transform 0.2s, background 0.2s;
+    border: 2px solid transparent;
+}
+
+.picture-option:active {
+    transform: scale(0.96);
+    background: var(--bg-tertiary);
+}
+
+.picture-emoji {
+    font-size: 48px;
+}
+
+.picture-text {
+    font-size: 14px;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.picture-option.correct {
+    border-color: var(--ios-green);
+    background: rgba(52, 199, 89, 0.1);
+}
+
+.picture-option.wrong {
+    border-color: var(--ios-red);
+    background: rgba(255, 59, 48, 0.1);
+    opacity: 0.5;
+}
+
+/* ========================================
+   Listening Mode (Detailed)
+   ======================================== */
+.listening-play-area {
+    text-align: center;
+    padding: 60px 0;
+}
+
+.listening-play-btn {
+    width: 100px;
+    height: 100px;
+    border-radius: 50px;
+    /* iOS-style big button */
+    background: var(--ios-blue);
+    color: white;
+    font-size: 40px;
+    box-shadow: 0 10px 30px rgba(0, 122, 255, 0.4);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s;
+}
+
+.listening-play-btn:active {
+    transform: scale(0.92);
+}
+
+.listening-options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.listening-option {
+    background: var(--bg-secondary);
+    padding: 20px;
+    border-radius: var(--radius-md);
+    /* Slightly smaller radius for list items */
+    text-align: left;
+    font-size: 16px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    box-shadow: var(--card-shadow);
+    transition: all 0.2s;
+}
+
+.listening-option:active {
+    background: var(--bg-tertiary);
+}
+
+.option-index {
+    width: 28px;
+    height: 28px;
+    border-radius: 14px;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.listening-option.correct {
+    background: var(--ios-green);
+    color: white;
+}
+
+.listening-option.correct .option-index {
+    background: rgba(255, 255, 255, 0.3);
+    color: white;
+}
+
+.listening-option.wrong {
+    background: var(--ios-red);
+    color: white;
+}
+
+.listening-option.wrong .option-index {
+    background: rgba(255, 255, 255, 0.3);
+    color: white;
+}
+
+/* ========================================
+   Spelling Mode
+   ======================================== */
+.spelling-board {
+    margin-bottom: var(--spacing-lg);
+}
+
+.spelling-definition {
+    font-size: 18px;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+    text-align: center;
+    font-weight: 500;
+}
+
+.spelling-display {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 60px;
+}
+
+.char-box {
+    width: 40px;
+    height: 50px;
+    border-bottom: 2px solid var(--ios-separator);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-transform: uppercase;
+}
+
+.char-box.filled {
+    border-bottom-color: var(--text-primary);
+}
+
+.char-box.current {
+    border-bottom-color: var(--ios-blue);
+}
+
+.char-box.correct {
+    border-bottom-color: var(--ios-green);
+    color: var(--ios-green);
+}
+
+.char-box.wrong {
+    border-bottom-color: var(--ios-red);
+    color: var(--ios-red);
+}
+
+/* Virtual Keyboard (iOS Style) */
+.spelling-keyboard {
+    background: var(--bg-tertiary);
+    /* Keyboard grey background */
+    padding: 10px 4px;
+    /* Tight padding */
+    border-radius: 0;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+}
+
+.keyboard-row {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.key-btn {
+    min-width: 32px;
+    /* Adaptive width */
+    flex: 1;
+    max-width: 44px;
+    /* Limit width on big screens */
+    height: 44px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border-radius: 5px;
+    /* iOS key radius */
+    font-size: 22px;
+    font-weight: 400;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.key-btn:active {
+    background: var(--ios-separator);
+}
+
+.key-special {
+    background: #B2B2B2;
+    /* iOS special key color (light) */
+    flex: 1.5;
+    max-width: 60px;
+}
+
+/* ========================================
+   Feedback Overlay (Glassmorphism)
+   ======================================== */
+.answer-feedback {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 255, 255, 0.85);
+    /* Glass material light */
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    width: 180px;
+    height: 180px;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@media (prefers-color-scheme: dark) {
+    .answer-feedback {
+        background: rgba(30, 30, 30, 0.8);
+    }
+}
+
+.feedback-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+}
+
+.feedback-icon.correct {
+    background: var(--ios-green);
+    color: white;
+}
+
+.feedback-icon.correct::after {
+    content: '✓';
+}
+
+.feedback-icon.wrong {
+    background: var(--ios-red);
+    color: white;
+}
+
+.feedback-icon.wrong::after {
+    content: '✕';
+}
+
+.feedback-word {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.feedback-meaning {
+    font-size: 13px;
+    color: var(--text-secondary);
+    max-width: 80%;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@keyframes popIn {
+    0% {
+        transform: translate(-50%, -50%) scale(0.5);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+}
+
+/* ========================================
+   Import Modal (iOS Sheet Style)
+   ======================================== */
+dialog {
+    border: none;
+    border-radius: 12px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    box-shadow: var(--modal-shadow);
+    max-width: 500px;
+    width: 90%;
+    margin: auto;
+    padding: 0;
+}
+
+dialog::backdrop {
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+}
+
+.modal-header {
+    padding: 16px;
+    text-align: center;
+    font-weight: 600;
+    border-bottom: 0.5px solid var(--ios-separator);
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+textarea {
+    width: 100%;
+    height: 200px;
+    background: var(--bg-primary);
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 16px;
+    resize: none;
+}
+
+.modal-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-top: 0.5px solid var(--ios-separator);
+}
+
+.modal-btn {
+    padding: 16px;
+    font-size: 17px;
+    font-weight: 500;
+    background: transparent;
+    color: var(--ios-blue);
+}
+
+.modal-btn:active {
+    background: var(--bg-tertiary);
+}
+
+.modal-btn-cancel {
+    border-right: 0.5px solid var(--ios-separator);
+    color: var(--ios-red);
+}
+
+.modal-btn-confirm {
+    font-weight: 600;
+}
+
+/* ========================================
+   拼写模式 - 补充样式
+   ======================================== */
+.spelling-input-area {
+    text-align: center;
+    margin: 40px 0;
+    padding: 0 var(--spacing-md);
+}
+
+.spelling-audio-btn {
+    width: 56px;
+    height: 56px;
+    background: var(--ios-blue);
+    color: white;
+    border-radius: 50%;
+    font-size: 24px;
+    margin: 20px auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+    transition: transform 0.2s;
+}
+
+.spelling-audio-btn:active {
+    transform: scale(0.92);
+}
+
+.spelling-hint {
+    font-size: 13px;
+    color: var(--ios-orange);
+    margin-top: var(--spacing-sm);
+    font-weight: 500;
+}
+
+.spelling-char {
+    width: 36px;
+    height: 48px;
+    border-bottom: 2px solid var(--ios-separator);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    margin: 0 2px;
+    transition: border-color 0.2s, color 0.2s;
+}
+
+.spelling-char.filled {
+    border-bottom-color: var(--text-primary);
+}
+
+.spelling-char.current {
+    border-bottom-color: var(--ios-blue);
+    animation: pulse 1s infinite;
+}
+
+.spelling-char.correct {
+    border-bottom-color: var(--ios-green);
+    color: var(--ios-green);
+}
+
+.spelling-char.wrong {
+    border-bottom-color: var(--ios-red);
+    color: var(--ios-red);
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* 特殊键样式 */
+.key-hint {
+    background: var(--ios-orange) !important;
+    color: white !important;
+}
+
+.key-delete {
+    background: var(--ios-red) !important;
+    color: white !important;
+}
+
+.key-hint:active,
+.key-delete:active {
+    opacity: 0.8;
+}
+
+/* ========================================
+   听音选义模式 - 补充样式
+   ======================================== */
+.listening-hint {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-top: var(--spacing-md);
+}
+
+.option-letter {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.play-icon-large {
+    width: 48px;
+    height: 48px;
+}
+
+.listening-play-btn.playing {
+    animation: soundWave 0.5s ease-in-out infinite;
+}
+
+@keyframes soundWave {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+/* ========================================
+   图片选义模式 - 补充样式
+   ======================================== */
+.picture-phonetic {
+    font-family: "Menlo", monospace;
+    font-size: 15px;
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    padding: 4px 12px;
+    border-radius: 12px;
+    display: inline-block;
+    margin-top: 4px;
+}
+
+/* ========================================
+   仪表盘 - 补充样式
+   ======================================== */
+.setting-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.setting-item label {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.setting-control {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    flex: 1;
+    margin-left: var(--spacing-lg);
+}
+
+.goal-value {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--ios-blue);
+    min-width: 28px;
+    text-align: center;
+}
+
+/* ========================================
+   通用交互状态 - 补充样式
+   ======================================== */
+/* 禁用状态 */
+.picture-option.disabled,
+.listening-option.disabled {
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+/* 播放按钮动画 */
+.play-btn.playing {
+    animation: soundWave 0.5s ease-in-out infinite;
+}
+
+.play-btn.playing .play-icon {
+    animation: soundPulse 0.3s ease-in-out infinite;
+}
+
+@keyframes soundPulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+}
+
+/* ===== App Overrides ===== */
+body {
+    font-family: "Noto Sans SC", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.settings-section {
+    display: block;
+}
+
+.import-btn {
+    position: absolute;
+    top: var(--spacing-md);
+    right: var(--spacing-md);
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-full);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.import-btn:active {
+    background: var(--text-secondary);
+    opacity: 0.7;
+}
+
+.import-btn svg {
+    width: 22px;
+    height: 22px;
+}
+
+.start-btn:disabled {
+    opacity: 0.55;
+    box-shadow: none;
+}
+
+.feedback-icon.correct::after {
+    content: '✓' !important;
+}
+
+.feedback-icon.wrong::after {
+    content: '✗' !important;
+}
+
+.import-modal .modal-content {
+    padding: 20px;
+}
+
+.import-modal h2 {
+    font-size: 22px;
+    margin-bottom: 8px;
+}
+
+.modal-hint {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-bottom: 12px;
+}
+
+.data-actions {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    padding: 10px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.data-btn {
+    min-height: 44px;
+    border-radius: 12px;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.data-btn:active {
+    transform: scale(0.98);
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid var(--ios-blue);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation: none !important;
+        transition: none !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+.view-plan .container,
+.view-result .container {
+    padding-top: 60px;
+}
+
+.plan-header,
+.result-header {
+    margin-bottom: 18px;
+}
+
+.plan-title,
+.result-title {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.plan-subtitle,
+.result-subtitle {
+    margin-top: 6px;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.plan-cards,
+.result-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.plan-card,
+.result-item {
+    background: var(--bg-secondary);
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: var(--card-shadow);
+}
+
+.plan-card-wide {
+    grid-column: 1 / span 2;
+}
+
+.plan-label,
+.result-label {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.plan-value,
+.result-value {
+    margin-top: 4px;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.plan-start-btn {
+    margin-top: 24px;
+}
+
+.result-actions {
+    margin-top: 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}

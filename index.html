@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="手机端背单词应用，支持闪卡、听音、拼写和图片选择模式。">
+    <meta name="theme-color" content="#0e7490">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" href="./icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="./icon.svg">
+    <title>背单词</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="view view-dashboard" id="dashboardView">
+        <div class="dashboard-container">
+            <header class="dashboard-header">
+                <h1 class="app-title">📚 背单词</h1>
+                <p class="current-plan" id="currentPlan">当前计划：大学英语四级</p>
+            </header>
+
+            <section class="book-selection">
+                <h2 class="section-title">选择词书</h2>
+                <div class="book-cards">
+                    <button class="book-card selected" type="button" data-book="cet4" id="bookCet4" aria-label="选择大学英语四级">
+                        <span class="book-icon">📘</span>
+                        <span class="book-info">
+                            <span class="book-name">大学英语四级</span>
+                            <span class="book-meta">CET-4 · 7508词</span>
+                        </span>
+                        <span class="book-check">✓</span>
+                    </button>
+                    <button class="book-card" type="button" data-book="cet6" id="bookCet6" aria-label="选择大学英语六级">
+                        <span class="book-icon">📗</span>
+                        <span class="book-info">
+                            <span class="book-name">大学英语六级</span>
+                            <span class="book-meta">CET-6 · 5651词</span>
+                        </span>
+                        <span class="book-check">✓</span>
+                    </button>
+                    <button class="book-card" type="button" data-book="kaoyan" id="bookKaoyan" aria-label="选择考研英语">
+                        <span class="book-icon">📙</span>
+                        <span class="book-info">
+                            <span class="book-name">考研英语</span>
+                            <span class="book-meta">考研 · 9602词</span>
+                        </span>
+                        <span class="book-check">✓</span>
+                    </button>
+                </div>
+            </section>
+
+            <section class="settings-section">
+                <h2 class="section-title">学习设置</h2>
+                <div class="setting-item">
+                    <label for="dailyGoalSlider">每日新词数</label>
+                    <div class="setting-control">
+                        <input type="range" id="dailyGoalSlider" min="5" max="50" step="5" value="20">
+                        <span class="goal-value" id="dailyGoalValue">20</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="data-tools">
+                <h2 class="section-title">数据管理</h2>
+                <div class="data-actions">
+                    <button class="data-btn" id="exportDataBtn" type="button">导出备份</button>
+                    <button class="data-btn" id="importDataBtn" type="button">导入备份</button>
+                    <input id="backupFileInput" type="file" accept=".json,application/json" hidden>
+                </div>
+            </section>
+
+            <section class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value" id="statLearned">0</div>
+                    <div class="stat-label">今日已学</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="statStreak">0</div>
+                    <div class="stat-label">连续天数</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="statTotal">0</div>
+                    <div class="stat-label">累计学习</div>
+                </div>
+            </section>
+
+            <section class="mode-selection">
+                <h2 class="section-title">学习模式</h2>
+                <div class="mode-cards">
+                    <button class="mode-card selected" type="button" data-mode="flashcard" id="modeFlashcard">
+                        <span class="mode-icon">🃏</span>
+                        <span class="mode-info">
+                            <span class="mode-name">经典闪卡</span>
+                            <span class="mode-desc">翻卡记忆词义</span>
+                        </span>
+                    </button>
+                    <button class="mode-card" type="button" data-mode="picture" id="modePicture">
+                        <span class="mode-icon">🖼️</span>
+                        <span class="mode-info">
+                            <span class="mode-name">图片选义</span>
+                            <span class="mode-desc">看提示选正确释义</span>
+                        </span>
+                    </button>
+                    <button class="mode-card" type="button" data-mode="listening" id="modeListening">
+                        <span class="mode-icon">🎧</span>
+                        <span class="mode-info">
+                            <span class="mode-name">听音选义</span>
+                            <span class="mode-desc">听发音选释义</span>
+                        </span>
+                    </button>
+                    <button class="mode-card" type="button" data-mode="spelling" id="modeSpelling">
+                        <span class="mode-icon">✍️</span>
+                        <span class="mode-info">
+                            <span class="mode-name">拼写模式</span>
+                            <span class="mode-desc">拼写加深记忆</span>
+                        </span>
+                    </button>
+                </div>
+            </section>
+
+            <button class="start-btn" id="startSessionBtn" type="button">
+                <span class="start-btn-icon">▶</span>
+                <span class="start-btn-text">开始今日学习</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="view view-plan hidden" id="planView">
+        <div class="container">
+            <button class="back-btn" id="planBackBtn" type="button" aria-label="返回首页">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+            </button>
+
+            <section class="plan-header">
+                <h2 class="plan-title">今日学习计划</h2>
+                <p class="plan-subtitle" id="planSubtitle">根据当前设置生成</p>
+            </section>
+
+            <section class="plan-cards">
+                <div class="plan-card">
+                    <div class="plan-label">词书</div>
+                    <div class="plan-value" id="planBook">-</div>
+                </div>
+                <div class="plan-card">
+                    <div class="plan-label">模式</div>
+                    <div class="plan-value" id="planMode">-</div>
+                </div>
+                <div class="plan-card">
+                    <div class="plan-label">复习词</div>
+                    <div class="plan-value" id="planReview">0</div>
+                </div>
+                <div class="plan-card">
+                    <div class="plan-label">新词</div>
+                    <div class="plan-value" id="planNew">0</div>
+                </div>
+                <div class="plan-card plan-card-wide">
+                    <div class="plan-label">预计学习总量</div>
+                    <div class="plan-value" id="planTotal">0</div>
+                </div>
+            </section>
+
+            <button class="start-btn plan-start-btn" id="planStartBtn" type="button">
+                <span class="start-btn-icon">▶</span>
+                <span class="start-btn-text">执行学习计划</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="view view-flashcard hidden" id="flashcardView">
+        <div class="container">
+            <button class="back-btn" id="backBtn" type="button" aria-label="返回首页">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+            </button>
+
+            <button class="import-btn" id="importBtn" type="button" aria-label="导入单词">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"></path>
+                </svg>
+            </button>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text" id="progressText">0 / 0</div>
+
+            <div class="card" id="wordCard">
+                <div class="card-inner" id="cardInner">
+                    <div class="card-face card-front">
+                        <div class="word" id="word">Loading...</div>
+                        <div class="phonetic" id="phonetic"></div>
+                        <div class="hint-text">点击卡片查看释义</div>
+                    </div>
+                    <div class="card-face card-back">
+                        <div class="meaning" id="meaning"></div>
+                        <div class="divider"></div>
+                        <div class="mnemonic" id="mnemonic">
+                            <span class="field-label">💡 助记</span>
+                            <span class="field-content" id="mnemonicText"></span>
+                        </div>
+                        <div class="etymology" id="etymology">
+                            <span class="field-label">📖 词源</span>
+                            <span class="field-content" id="etymologyText"></span>
+                        </div>
+                        <div class="example" id="example">
+                            <span class="field-label">📝 例句</span>
+                            <span class="field-content" id="exampleText"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button class="play-btn" id="playBtn" type="button" aria-label="播放发音">
+                <svg class="play-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M3 9V15H7L12 20V4L7 9H3Z" fill="currentColor"></path>
+                    <path d="M16.5 12C16.5 10.23 15.48 8.71 14 7.97V16.02C15.48 15.29 16.5 13.77 16.5 12Z" fill="currentColor"></path>
+                    <path d="M14 3.23V5.29C16.89 6.15 19 8.83 19 12C19 15.17 16.89 17.85 14 18.71V20.77C18.01 19.86 21 16.28 21 12C21 7.72 18.01 4.14 14 3.23Z" fill="currentColor"></path>
+                </svg>
+            </button>
+
+            <div class="btn-group">
+                <button class="status-btn btn-unknown" id="btnUnknown" type="button">
+                    <span class="btn-icon">✗</span>
+                    <span class="btn-text">不认识</span>
+                </button>
+                <button class="status-btn btn-fuzzy" id="btnFuzzy" type="button">
+                    <span class="btn-icon">~</span>
+                    <span class="btn-text">模糊</span>
+                </button>
+                <button class="status-btn btn-known" id="btnKnown" type="button">
+                    <span class="btn-icon">✓</span>
+                    <span class="btn-text">认识</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <dialog class="import-modal" id="importModal">
+        <div class="modal-content">
+            <h2>📥 导入单词</h2>
+            <p class="modal-hint">每行一个单词，格式：<code>单词, 释义</code></p>
+            <textarea id="importText" placeholder="hello, 你好&#10;world, 世界&#10;apple, 苹果"></textarea>
+            <div class="modal-actions">
+                <button class="modal-btn modal-btn-cancel" id="cancelImport" type="button">取消</button>
+                <button class="modal-btn modal-btn-confirm" id="confirmImport" type="button">导入</button>
+            </div>
+        </div>
+    </dialog>
+
+    <div class="view view-picture hidden" id="pictureView">
+        <div class="container">
+            <button class="back-btn" id="pictureBackBtn" type="button" aria-label="返回首页">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+            </button>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="pictureProgressFill"></div>
+            </div>
+            <div class="progress-text" id="pictureProgressText">0 / 0</div>
+
+            <div class="picture-word-area">
+                <div class="picture-word" id="pictureWord">abandon</div>
+                <div class="picture-phonetic" id="picturePhonetic">/əˈbændən/</div>
+                <button class="picture-audio-btn" id="pictureAudioBtn" type="button" aria-label="播放发音">🔊</button>
+            </div>
+
+            <div class="picture-options" id="pictureOptions">
+                <button class="picture-option" type="button" data-index="0">
+                    <span class="picture-emoji">🎯</span>
+                    <span class="picture-text">选项1</span>
+                </button>
+                <button class="picture-option" type="button" data-index="1">
+                    <span class="picture-emoji">🎨</span>
+                    <span class="picture-text">选项2</span>
+                </button>
+                <button class="picture-option" type="button" data-index="2">
+                    <span class="picture-emoji">📚</span>
+                    <span class="picture-text">选项3</span>
+                </button>
+                <button class="picture-option" type="button" data-index="3">
+                    <span class="picture-emoji">🧭</span>
+                    <span class="picture-text">选项4</span>
+                </button>
+            </div>
+        </div>
+        <div class="answer-feedback hidden" id="pictureFeedback">
+            <div class="feedback-icon"></div>
+            <div class="feedback-word" id="pictureFeedbackWord"></div>
+            <div class="feedback-meaning" id="pictureFeedbackMeaning"></div>
+        </div>
+    </div>
+
+    <div class="view view-listening hidden" id="listeningView">
+        <div class="container">
+            <button class="back-btn" id="listeningBackBtn" type="button" aria-label="返回首页">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+            </button>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="listeningProgressFill"></div>
+            </div>
+            <div class="progress-text" id="listeningProgressText">0 / 0</div>
+
+            <div class="listening-play-area">
+                <button class="listening-play-btn" id="listeningPlayBtn" type="button" aria-label="播放发音">
+                    <svg class="play-icon-large" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M3 9V15H7L12 20V4L7 9H3Z" fill="currentColor"></path>
+                        <path d="M16.5 12C16.5 10.23 15.48 8.71 14 7.97V16.02C15.48 15.29 16.5 13.77 16.5 12Z" fill="currentColor"></path>
+                        <path d="M14 3.23V5.29C16.89 6.15 19 8.83 19 12C19 15.17 16.89 17.85 14 18.71V20.77C18.01 19.86 21 16.28 21 12C21 7.72 18.01 4.14 14 3.23Z" fill="currentColor"></path>
+                    </svg>
+                </button>
+                <div class="listening-hint">点击播放发音，选择正确释义</div>
+            </div>
+
+            <div class="listening-options" id="listeningOptions">
+                <button class="listening-option" type="button" data-index="0">
+                    <span class="option-letter">A</span>
+                    <span class="option-text">选项1</span>
+                </button>
+                <button class="listening-option" type="button" data-index="1">
+                    <span class="option-letter">B</span>
+                    <span class="option-text">选项2</span>
+                </button>
+                <button class="listening-option" type="button" data-index="2">
+                    <span class="option-letter">C</span>
+                    <span class="option-text">选项3</span>
+                </button>
+                <button class="listening-option" type="button" data-index="3">
+                    <span class="option-letter">D</span>
+                    <span class="option-text">选项4</span>
+                </button>
+            </div>
+        </div>
+        <div class="answer-feedback hidden" id="listeningFeedback">
+            <div class="feedback-icon"></div>
+            <div class="feedback-word" id="listeningFeedbackWord"></div>
+            <div class="feedback-meaning" id="listeningFeedbackMeaning"></div>
+        </div>
+    </div>
+
+    <div class="view view-spelling hidden" id="spellingView">
+        <div class="container">
+            <button class="back-btn" id="spellingBackBtn" type="button" aria-label="返回首页">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+            </button>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="spellingProgressFill"></div>
+            </div>
+            <div class="progress-text" id="spellingProgressText">0 / 0</div>
+
+            <button class="spelling-audio-btn" id="spellingAudioBtn" type="button" aria-label="播放发音">🔊</button>
+            <div class="spelling-definition" id="spellingDefinition">释义</div>
+
+            <div class="spelling-input-area">
+                <div class="spelling-display" id="spellingDisplay"></div>
+                <div class="spelling-hint" id="spellingHint"></div>
+            </div>
+
+            <div class="spelling-keyboard" id="spellingKeyboard">
+                <div class="keyboard-row">
+                    <button class="key-btn" type="button" data-key="q">Q</button>
+                    <button class="key-btn" type="button" data-key="w">W</button>
+                    <button class="key-btn" type="button" data-key="e">E</button>
+                    <button class="key-btn" type="button" data-key="r">R</button>
+                    <button class="key-btn" type="button" data-key="t">T</button>
+                    <button class="key-btn" type="button" data-key="y">Y</button>
+                    <button class="key-btn" type="button" data-key="u">U</button>
+                    <button class="key-btn" type="button" data-key="i">I</button>
+                    <button class="key-btn" type="button" data-key="o">O</button>
+                    <button class="key-btn" type="button" data-key="p">P</button>
+                </div>
+                <div class="keyboard-row">
+                    <button class="key-btn" type="button" data-key="a">A</button>
+                    <button class="key-btn" type="button" data-key="s">S</button>
+                    <button class="key-btn" type="button" data-key="d">D</button>
+                    <button class="key-btn" type="button" data-key="f">F</button>
+                    <button class="key-btn" type="button" data-key="g">G</button>
+                    <button class="key-btn" type="button" data-key="h">H</button>
+                    <button class="key-btn" type="button" data-key="j">J</button>
+                    <button class="key-btn" type="button" data-key="k">K</button>
+                    <button class="key-btn" type="button" data-key="l">L</button>
+                </div>
+                <div class="keyboard-row">
+                    <button class="key-btn key-hint" id="keyHint" type="button">💡</button>
+                    <button class="key-btn" type="button" data-key="z">Z</button>
+                    <button class="key-btn" type="button" data-key="x">X</button>
+                    <button class="key-btn" type="button" data-key="c">C</button>
+                    <button class="key-btn" type="button" data-key="v">V</button>
+                    <button class="key-btn" type="button" data-key="b">B</button>
+                    <button class="key-btn" type="button" data-key="n">N</button>
+                    <button class="key-btn" type="button" data-key="m">M</button>
+                    <button class="key-btn key-delete" id="keyDelete" type="button">⌫</button>
+                </div>
+            </div>
+        </div>
+        <div class="answer-feedback hidden" id="spellingFeedback">
+            <div class="feedback-icon"></div>
+            <div class="feedback-word" id="spellingFeedbackWord"></div>
+            <div class="feedback-meaning" id="spellingFeedbackMeaning"></div>
+        </div>
+    </div>
+
+    <div class="view view-result hidden" id="resultView">
+        <div class="container">
+            <section class="result-header">
+                <h2 class="result-title">学习结果</h2>
+                <p class="result-subtitle" id="resultSubtitle">本次学习已完成</p>
+            </section>
+
+            <section class="result-grid">
+                <div class="result-item">
+                    <div class="result-value" id="resultTotal">0</div>
+                    <div class="result-label">总练习</div>
+                </div>
+                <div class="result-item">
+                    <div class="result-value" id="resultKnown">0</div>
+                    <div class="result-label">认识</div>
+                </div>
+                <div class="result-item">
+                    <div class="result-value" id="resultFuzzy">0</div>
+                    <div class="result-label">模糊</div>
+                </div>
+                <div class="result-item">
+                    <div class="result-value" id="resultUnknown">0</div>
+                    <div class="result-label">不认识</div>
+                </div>
+                <div class="result-item">
+                    <div class="result-value" id="resultAccuracy">0%</div>
+                    <div class="result-label">认识率</div>
+                </div>
+                <div class="result-item">
+                    <div class="result-value" id="resultDuration">0分</div>
+                    <div class="result-label">用时</div>
+                </div>
+                <div class="result-item">
+                    <div class="result-value" id="resultNew">0</div>
+                    <div class="result-label">新词</div>
+                </div>
+                <div class="result-item">
+                    <div class="result-value" id="resultReview">0</div>
+                    <div class="result-label">复习</div>
+                </div>
+            </section>
+
+            <div class="result-actions">
+                <button class="data-btn" id="resultBackBtn" type="button">返回首页</button>
+                <button class="data-btn" id="resultNextBtn" type="button">继续学习</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="vocab_library.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

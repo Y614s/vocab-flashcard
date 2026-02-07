@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# OS misc
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editors
+.vscode/
+.idea/
+*.swp
