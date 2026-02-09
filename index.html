@@ -520,6 +520,11 @@
                 </div>
             </section>
 
+            <section class="result-insights hidden" id="resultInsights">
+                <h3 class="section-title">薄弱词建议</h3>
+                <div class="result-insight-list" id="resultWeakList"></div>
+            </section>
+
             <div class="result-actions">
                 <button class="data-btn" id="resultBackBtn" type="button">返回首页</button>
                 <button class="data-btn" id="resultNextBtn" type="button">继续学习</button>
@@ -634,6 +639,11 @@
                         <span>仅高频错题</span>
                     </label>
                 </div>
+                <div class="wrong-batch-row">
+                    <button class="data-btn wrong-batch-btn" id="wrongClearHardBtn" type="button">清理高频错题</button>
+                    <button class="data-btn wrong-batch-btn" id="wrongClearOldBtn" type="button">清理30天前</button>
+                    <button class="data-btn wrong-batch-btn" id="wrongExportBtn" type="button">导出错题</button>
+                </div>
             </section>
 
             <section class="wrong-list" id="wrongList"></section>
@@ -646,6 +656,14 @@
             </div>
         </div>
     </div>
+    <div class="update-banner hidden" id="updateBanner">
+        <span class="update-banner-text" id="updateBannerText">发现新版本，可立即刷新。</span>
+        <div class="update-banner-actions">
+            <button class="update-banner-btn" id="updateNowBtn" type="button">立即更新</button>
+            <button class="update-banner-btn ghost" id="updateLaterBtn" type="button">稍后</button>
+        </div>
+    </div>
+
     <script src="vocab_library.js"></script>
     <script src="core_utils.js"></script>
     <div class="session-toast hidden" id="sessionToast">已自动保存学习进度</div>

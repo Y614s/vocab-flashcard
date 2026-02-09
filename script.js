@@ -4,6 +4,11 @@ const ACTIVE_SESSION_KEY = 'vocab_flashcard_active_session_v1';
 const CUSTOM_PLANS_KEY = 'vocab_custom_plans_v1';
 const BACKUP_VERSION = 1;
 const STATE_SCHEMA_VERSION = 2;
+const WRONG_FILTERS_KEY = 'vocab_wrong_filters_v1';
+const SW_UPDATE_DISMISS_KEY = 'vocab_sw_update_dismiss_v1';
+const WRONG_CLEAN_DAYS = 30;
+const RESULT_WEAK_TOP = 5;
+const SEARCH_DEBOUNCE_MS = 180;
 const INSTALL_DISMISS_KEY = 'vocab_install_dismiss_until_v1';
 const INSTALL_DISMISS_DAYS = 7;
 const REVIEW_INTERVALS = [0, 1, 3, 7, 14, 30];
@@ -56,6 +61,9 @@ let wrongBookFilters = {
   onlyHard: false
 };
 let wrongBookPage = 1;
+let wrongSearchDebounceTimer = null;
+let sessionWordStats = {};
+let swRegistrationRef = null;
 let sessionResult = {
   startAt: 0,
   endAt: 0,
@@ -189,6 +197,8 @@ const dom = {
   resultReview: document.getElementById('resultReview'),
   resultBackBtn: document.getElementById('resultBackBtn'),
   resultNextBtn: document.getElementById('resultNextBtn'),
+  resultInsights: document.getElementById('resultInsights'),
+  resultWeakList: document.getElementById('resultWeakList'),
   sessionToast: document.getElementById('sessionToast'),
   wrongView: document.getElementById('wrongView'),
   wrongBackBtn: document.getElementById('wrongBackBtn'),
@@ -196,11 +206,18 @@ const dom = {
   wrongSearchInput: document.getElementById('wrongSearchInput'),
   wrongSortSelect: document.getElementById('wrongSortSelect'),
   wrongOnlyHardChk: document.getElementById('wrongOnlyHardChk'),
+  wrongClearHardBtn: document.getElementById('wrongClearHardBtn'),
+  wrongClearOldBtn: document.getElementById('wrongClearOldBtn'),
+  wrongExportBtn: document.getElementById('wrongExportBtn'),
   wrongList: document.getElementById('wrongList'),
   wrongEmpty: document.getElementById('wrongEmpty'),
   wrongMoreBtn: document.getElementById('wrongMoreBtn'),
   wrongPracticeBtn: document.getElementById('wrongPracticeBtn'),
-  wrongClearBtn: document.getElementById('wrongClearBtn')
+  wrongClearBtn: document.getElementById('wrongClearBtn'),
+  updateBanner: document.getElementById('updateBanner'),
+  updateBannerText: document.getElementById('updateBannerText'),
+  updateNowBtn: document.getElementById('updateNowBtn'),
+  updateLaterBtn: document.getElementById('updateLaterBtn')
 };
 
 function nword(v) { return String(v || '').trim().toLowerCase(); }
@@ -742,6 +759,46 @@ function syncWrongFilterControls() {
   if (dom.wrongOnlyHardChk) dom.wrongOnlyHardChk.checked = wrongBookFilters.onlyHard;
 }
 
+function saveWrongFilters() {
+  const payload = {
+    keyword: String(wrongBookFilters.keyword || '').trim(),
+    sort: String(wrongBookFilters.sort || 'score'),
+    onlyHard: Boolean(wrongBookFilters.onlyHard)
+  };
+  localStorage.setItem(WRONG_FILTERS_KEY, JSON.stringify(payload));
+}
+
+function loadWrongFilters() {
+  const raw = localStorage.getItem(WRONG_FILTERS_KEY);
+  if (!raw) return;
+  try {
+    const data = JSON.parse(raw);
+    wrongBookFilters.keyword = String(data.keyword || '').trim();
+    wrongBookFilters.sort = String(data.sort || 'score');
+    wrongBookFilters.onlyHard = Boolean(data.onlyHard);
+  } catch (e) {
+    wrongBookFilters.keyword = '';
+    wrongBookFilters.sort = 'score';
+    wrongBookFilters.onlyHard = false;
+  }
+}
+
+function escapeRegExp(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function highlightKeyword(text, keyword) {
+  const source = String(text || '');
+  const k = String(keyword || '').trim();
+  if (!k) return escapeHtml(source);
+  try {
+    const re = new RegExp(`(${escapeRegExp(k)})`, 'ig');
+    return escapeHtml(source).replace(re, '<span class="wrong-highlight">$1</span>');
+  } catch (e) {
+    return escapeHtml(source);
+  }
+}
+
 function getVisibleWrongEntries(book = state.currentBook) {
   const allEntries = getWrongEntries(book, 2000);
   if (window.VocabCore && typeof window.VocabCore.filterWrongEntries === 'function') {
@@ -906,6 +963,19 @@ function applyStudy(status) {
   if (!currentWord) return;
   markStudyToday();
   updateWordRecord(currentWord, status);
+  const key = rkey(state.currentBook, currentWord.word);
+  if (!sessionWordStats[key]) {
+    sessionWordStats[key] = {
+      word: currentWord.word,
+      definition: currentWord.definition || '',
+      known: 0,
+      fuzzy: 0,
+      unknown: 0
+    };
+  }
+  if (status === 'known') sessionWordStats[key].known += 1;
+  else if (status === 'fuzzy') sessionWordStats[key].fuzzy += 1;
+  else sessionWordStats[key].unknown += 1;
   ensureProgress(state.currentBook);
   if (!currentWord.isReview && Number.isInteger(currentWord.originalIndex)) {
     state.bookProgress[state.currentBook].learnedIndex = Math.max(state.bookProgress[state.currentBook].learnedIndex, currentWord.originalIndex + 1);
@@ -1062,6 +1132,48 @@ function formatDuration(ms) {
   return rest ? `${min}分${rest}秒` : `${min}分`;
 }
 
+function getWeakWordSuggestions(limit = RESULT_WEAK_TOP) {
+  const rows = Object.keys(sessionWordStats || {}).map((key) => {
+    const s = sessionWordStats[key];
+    const r = state.wordRecords[key] || {};
+    const unknown = Math.max(0, Number(s.unknown) || 0);
+    const fuzzy = Math.max(0, Number(s.fuzzy) || 0);
+    const known = Math.max(0, Number(s.known) || 0);
+    const level = Math.max(0, Number(r.level) || 0);
+    const score = unknown * 3 + fuzzy * 2 - known - level;
+    return {
+      word: s.word,
+      definition: s.definition,
+      unknown,
+      fuzzy,
+      known,
+      score,
+      nextReviewDate: r.nextReviewDate || today()
+    };
+  });
+  rows.sort((a, b) => b.score - a.score);
+  return rows.filter((x) => x.score > 0).slice(0, Math.max(1, Number(limit) || RESULT_WEAK_TOP));
+}
+
+function renderResultInsights() {
+  if (!dom.resultInsights || !dom.resultWeakList) return;
+  const weak = getWeakWordSuggestions(RESULT_WEAK_TOP);
+  if (!weak.length) {
+    dom.resultInsights.classList.add('hidden');
+    dom.resultWeakList.innerHTML = '';
+    return;
+  }
+  const html = weak.map((item) => (
+    `<article class="result-insight-item">`
+      + `<div class="result-insight-word">${escapeHtml(item.word)}</div>`
+      + `<div class="result-insight-meta">错 ${item.unknown} · 模糊 ${item.fuzzy} · 建议复习 ${escapeHtml(item.nextReviewDate)}</div>`
+      + `<div class="result-insight-meta">${escapeHtml(item.definition || '')}</div>`
+    + `</article>`
+  )).join('');
+  dom.resultWeakList.innerHTML = html;
+  dom.resultInsights.classList.remove('hidden');
+}
+
 function showResultPage(totalCount) {
   const total = totalCount || 0;
   const known = sessionResult.known;
@@ -1081,6 +1193,7 @@ function showResultPage(totalCount) {
   dom.resultDuration.textContent = formatDuration(duration);
   dom.resultNew.textContent = String(sessionResult.newWords);
   dom.resultReview.textContent = String(sessionResult.reviewWords);
+  renderResultInsights();
 
   showOnly(dom.resultView);
 }
@@ -1102,6 +1215,7 @@ function setupSession(view, preparedQueue) {
     newWords: 0,
     reviewWords: 0
   };
+  sessionWordStats = {};
   if (!sessionQueue.length) {
     alert('🎉 太棒了！今日任务已全部完成，明天再来吧！');
     updateDashboard();
@@ -1114,9 +1228,6 @@ function setupSession(view, preparedQueue) {
 
 function selectBook(book) {
   if (!['cet4', 'cet6', 'kaoyan'].includes(book)) return;
-  wrongBookFilters.keyword = '';
-  wrongBookFilters.onlyHard = false;
-  wrongBookFilters.sort = 'score';
   wrongBookPage = 1;
   state.currentBook = book; ensureProgress(book); saveState(); updateDashboard();
 }
@@ -1254,8 +1365,8 @@ function renderWrongBook() {
     `<article class="wrong-item">`
       + `<div class="wrong-item-head">`
       + `<div class="wrong-main">`
-      + `<div class="wrong-word">${escapeHtml(item.word)}</div>`
-      + `<div class="wrong-meaning">${escapeHtml(item.definition || '（释义不可用）')}</div>`
+      + `<div class="wrong-word">${highlightKeyword(item.word, wrongBookFilters.keyword)}</div>`
+      + `<div class="wrong-meaning">${highlightKeyword(item.definition || '（释义不可用）', wrongBookFilters.keyword)}</div>`
       + `<div class="wrong-meta">错 ${item.incorrect} · 模糊 ${item.fuzzy} · 计划复习 ${escapeHtml(item.nextReviewDate || '今天')} · 强度 ${item.score}</div>`
       + `</div>`
       + `<button class="wrong-remove-btn" type="button" data-wrong-remove="${escapeHtml(item.key)}">移除</button>`
@@ -1314,6 +1425,91 @@ function clearWrongRecordsForCurrentBook() {
   saveState();
   renderWrongBook();
   updateDashboard();
+}
+
+function clearWrongEntries(entries, confirmText) {
+  const list = Array.isArray(entries) ? entries : [];
+  if (!list.length) {
+    renderWrongBook();
+    return;
+  }
+  if (!window.confirm(confirmText)) return;
+  list.forEach((item) => {
+    const r = state.wordRecords[item.key];
+    if (!r) return;
+    r.incorrectCount = 0;
+    r.fuzzyCount = 0;
+    r.lapseCount = 0;
+    r.lastResult = '';
+  });
+  saveState();
+  renderWrongBook();
+  updateDashboard();
+}
+
+function clearHardWrongRecordsForCurrentBook() {
+  const entries = getWrongEntries(state.currentBook, 2000).filter((item) => Number(item.score) >= 8);
+  clearWrongEntries(entries, `确认清理当前词书 ${entries.length} 个高频错题吗？`);
+}
+
+function clearOldWrongRecordsForCurrentBook() {
+  const cutoff = addDays(today(), -WRONG_CLEAN_DAYS);
+  const entries = getWrongEntries(state.currentBook, 2000).filter((item) => {
+    if (!item.lastSeen) return false;
+    return dayDiff(item.lastSeen, cutoff) >= 0;
+  });
+  clearWrongEntries(entries, `确认清理 ${WRONG_CLEAN_DAYS} 天前的 ${entries.length} 个错题吗？`);
+}
+
+function toCsvCell(value) {
+  const text = String(value == null ? '' : value);
+  if (!/[,"\n]/.test(text)) return text;
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function triggerDownload(filename, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType || 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function exportWrongEntriesForCurrentBook() {
+  const entries = getVisibleWrongEntries(state.currentBook);
+  if (!entries.length) {
+    alert('当前筛选结果没有可导出的错题。');
+    return;
+  }
+
+  const stamp = today().replace(/-/g, '');
+  const base = `wrongbook-${state.currentBook}-${stamp}`;
+  const jsonPayload = {
+    app: 'vocab-flashcard',
+    exportedAt: new Date().toISOString(),
+    bookId: state.currentBook,
+    filters: { ...wrongBookFilters },
+    entries
+  };
+  triggerDownload(`${base}.json`, JSON.stringify(jsonPayload, null, 2), 'application/json;charset=utf-8');
+
+  const header = ['word', 'definition', 'incorrect', 'fuzzy', 'lapse', 'score', 'lastSeen', 'nextReviewDate'];
+  const rows = entries.map((item) => [
+    item.word,
+    item.definition,
+    item.incorrect,
+    item.fuzzy,
+    item.lapse,
+    item.score,
+    item.lastSeen || '',
+    item.nextReviewDate || ''
+  ]);
+  const csv = [header, ...rows].map((row) => row.map(toCsvCell).join(',')).join('\n');
+  triggerDownload(`${base}.csv`, csv, 'text/csv;charset=utf-8');
 }
 
 function startWrongPracticeFromBook() {
@@ -1886,6 +2082,9 @@ function bindEvents() {
   if (dom.wrongBackBtn) dom.wrongBackBtn.addEventListener('click', showDashboard);
   if (dom.wrongPracticeBtn) dom.wrongPracticeBtn.addEventListener('click', startWrongPracticeFromBook);
   if (dom.wrongClearBtn) dom.wrongClearBtn.addEventListener('click', clearWrongRecordsForCurrentBook);
+  if (dom.wrongClearHardBtn) dom.wrongClearHardBtn.addEventListener('click', clearHardWrongRecordsForCurrentBook);
+  if (dom.wrongClearOldBtn) dom.wrongClearOldBtn.addEventListener('click', clearOldWrongRecordsForCurrentBook);
+  if (dom.wrongExportBtn) dom.wrongExportBtn.addEventListener('click', exportWrongEntriesForCurrentBook);
   if (dom.wrongMoreBtn) {
     dom.wrongMoreBtn.addEventListener('click', () => {
       wrongBookPage += 1;
@@ -1894,15 +2093,24 @@ function bindEvents() {
   }
   if (dom.wrongSearchInput) {
     dom.wrongSearchInput.addEventListener('input', (e) => {
-      wrongBookFilters.keyword = String(e.target.value || '').trim();
-      wrongBookPage = 1;
-      renderWrongBook();
+      const nextKeyword = String(e.target.value || '').trim();
+      if (wrongSearchDebounceTimer) {
+        clearTimeout(wrongSearchDebounceTimer);
+        wrongSearchDebounceTimer = null;
+      }
+      wrongSearchDebounceTimer = setTimeout(() => {
+        wrongBookFilters.keyword = nextKeyword;
+        wrongBookPage = 1;
+        saveWrongFilters();
+        renderWrongBook();
+      }, SEARCH_DEBOUNCE_MS);
     });
   }
   if (dom.wrongSortSelect) {
     dom.wrongSortSelect.addEventListener('change', (e) => {
       wrongBookFilters.sort = String(e.target.value || 'score');
       wrongBookPage = 1;
+      saveWrongFilters();
       renderWrongBook();
     });
   }
@@ -1910,6 +2118,7 @@ function bindEvents() {
     dom.wrongOnlyHardChk.addEventListener('change', (e) => {
       wrongBookFilters.onlyHard = Boolean(e.target.checked);
       wrongBookPage = 1;
+      saveWrongFilters();
       renderWrongBook();
     });
   }
@@ -2092,6 +2301,59 @@ function registerInstallPrompt() {
   });
 
   updateInstallEntry();
+}
+
+function showUpdateBanner(message, onUpdateNow) {
+  if (!dom.updateBanner || !dom.updateNowBtn || !dom.updateLaterBtn) return;
+  const dismissedAt = Number(localStorage.getItem(SW_UPDATE_DISMISS_KEY) || 0);
+  if (dismissedAt && (Date.now() - dismissedAt) < 2 * 60 * 60 * 1000) return;
+
+  if (dom.updateBannerText && message) dom.updateBannerText.textContent = message;
+  dom.updateBanner.classList.remove('hidden');
+  dom.updateNowBtn.onclick = () => {
+    dom.updateBanner.classList.add('hidden');
+    localStorage.removeItem(SW_UPDATE_DISMISS_KEY);
+    if (typeof onUpdateNow === 'function') onUpdateNow();
+  };
+  dom.updateLaterBtn.onclick = () => {
+    localStorage.setItem(SW_UPDATE_DISMISS_KEY, String(Date.now()));
+    dom.updateBanner.classList.add('hidden');
+  };
+}
+
+function watchServiceWorkerUpdates(registration) {
+  if (!registration || !('serviceWorker' in navigator)) return;
+
+  const applyUpdate = () => {
+    if (!registration.waiting) return;
+    showUpdateBanner('发现新版本，点击立即更新。', () => {
+      registration.waiting.postMessage('SKIP_WAITING');
+    });
+  };
+
+  if (registration.waiting) applyUpdate();
+
+  registration.addEventListener('updatefound', () => {
+    const worker = registration.installing;
+    if (!worker) return;
+    worker.addEventListener('statechange', () => {
+      if (worker.state === 'installed' && navigator.serviceWorker.controller) applyUpdate();
+    });
+  });
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    window.location.reload();
+  });
+}
+
+function registerSWEnhanced() {
+  if (!('serviceWorker' in navigator)) return;
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').then((registration) => {
+      swRegistrationRef = registration;
+      watchServiceWorkerUpdates(registration);
+    }).catch(() => {});
+  });
 }
 
 function registerSW() {
@@ -2413,12 +2675,13 @@ function init() {
   ensureProgress(state.currentBook);
   saveState();
   normalizeStaticLabels();
+  loadWrongFilters();
   bindEvents();
   bindCustomPlanEvents();
   showDashboard();
   if ('speechSynthesis' in window) window.speechSynthesis.getVoices();
   registerInstallPrompt();
-  registerSW();
+  registerSWEnhanced();
   registerOfflineDetection();
 }
 
