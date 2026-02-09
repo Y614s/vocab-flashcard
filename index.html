@@ -164,8 +164,15 @@
                 </div>
             </section>
 
-            <section class="quick-actions hidden" id="quickActions">
-                <button class="data-btn quick-resume-btn" id="resumeSessionBtn" type="button">继续上次学习</button>
+            <section class="quick-actions" id="quickActions">
+                <button class="data-btn quick-resume-btn hidden" id="resumeSessionBtn" type="button">继续上次学习</button>
+                <div class="quick-start-grid">
+                    <button class="data-btn quick-action-btn" id="quickReviewBtn" type="button">只复习</button>
+                    <button class="data-btn quick-action-btn" id="quickNewBtn" type="button">只学新词</button>
+                    <button class="data-btn quick-action-btn" id="quickWrongBtn" type="button">只练错题</button>
+                    <button class="data-btn quick-action-btn" id="quickSpellingBtn" type="button">拼写速练</button>
+                    <button class="data-btn quick-action-btn" id="quickWrongSpellingBtn" type="button">错题拼写</button>
+                </div>
             </section>
             <button class="start-btn" id="startSessionBtn" type="button">
                 <span class="start-btn-icon">▶</span>
@@ -600,6 +607,7 @@
     </dialog>
 
     <script src="vocab_library.js"></script>
+    <div class="session-toast hidden" id="sessionToast">已自动保存学习进度</div>
     <script src="script.js"></script>
 </body>
 

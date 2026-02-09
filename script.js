@@ -6,6 +6,10 @@ const BACKUP_VERSION = 1;
 const INSTALL_DISMISS_KEY = 'vocab_install_dismiss_until_v1';
 const INSTALL_DISMISS_DAYS = 7;
 const REVIEW_INTERVALS = [0, 1, 3, 7, 14, 30];
+const SM2_MIN_EASE = 1.3;
+const SM2_MAX_EASE = 2.9;
+const SM2_DEFAULT_EASE = 2.5;
+const SM2_MAX_INTERVAL_DAYS = 120;
 const MODES = new Set(['flashcard', 'picture', 'listening', 'spelling']);
 const PICTURE_EMOJIS = ['🧩', '🎯', '📚', '🧠', '🔍', '🌟', '🧭', '📝', '🎨', '🪄'];
 let customPlans = [];
@@ -42,6 +46,7 @@ let spellingHintCount = 0;
 let pendingPlan = null;
 let deferredInstallPrompt = null;
 let installPromptPending = false;
+let sessionToastTimer = null;
 let sessionResult = {
   startAt: 0,
   endAt: 0,
@@ -86,6 +91,11 @@ const dom = {
   statTotal: document.getElementById('statTotal'),
   quickActions: document.getElementById('quickActions'),
   resumeSessionBtn: document.getElementById('resumeSessionBtn'),
+  quickReviewBtn: document.getElementById('quickReviewBtn'),
+  quickNewBtn: document.getElementById('quickNewBtn'),
+  quickWrongBtn: document.getElementById('quickWrongBtn'),
+  quickSpellingBtn: document.getElementById('quickSpellingBtn'),
+  quickWrongSpellingBtn: document.getElementById('quickWrongSpellingBtn'),
   startSessionBtn: document.getElementById('startSessionBtn'),
   planView: document.getElementById('planView'),
   planBackBtn: document.getElementById('planBackBtn'),
@@ -168,7 +178,8 @@ const dom = {
   resultNew: document.getElementById('resultNew'),
   resultReview: document.getElementById('resultReview'),
   resultBackBtn: document.getElementById('resultBackBtn'),
-  resultNextBtn: document.getElementById('resultNextBtn')
+  resultNextBtn: document.getElementById('resultNextBtn'),
+  sessionToast: document.getElementById('sessionToast')
 };
 
 function nword(v) { return String(v || '').trim().toLowerCase(); }
@@ -198,6 +209,51 @@ function dismissInstallEntry() {
 
 function clearInstallDismiss() {
   localStorage.removeItem(INSTALL_DISMISS_KEY);
+}
+
+function showSessionToast(message) {
+  if (!dom.sessionToast) return;
+  if (sessionToastTimer) {
+    clearTimeout(sessionToastTimer);
+    sessionToastTimer = null;
+  }
+  dom.sessionToast.textContent = message || '已自动保存学习进度';
+  dom.sessionToast.classList.remove('hidden');
+  sessionToastTimer = setTimeout(() => {
+    dom.sessionToast.classList.add('hidden');
+    sessionToastTimer = null;
+  }, 1600);
+}
+
+function clampNumber(value, min, max, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}
+
+function intervalToLevel(days) {
+  const d = Math.max(0, Number(days) || 0);
+  if (d >= 60) return 5;
+  if (d >= 21) return 4;
+  if (d >= 7) return 3;
+  if (d >= 3) return 2;
+  if (d >= 1) return 1;
+  return 0;
+}
+
+function hydrateReviewFields() {
+  if (!state || !state.wordRecords || typeof state.wordRecords !== 'object') return;
+  Object.keys(state.wordRecords).forEach((key) => {
+    const r = state.wordRecords[key];
+    if (!r || typeof r !== 'object') return;
+    const level = Math.max(0, Number(r.level) || 0);
+    const baseInterval = Math.max(0, REVIEW_INTERVALS[Math.min(level, REVIEW_INTERVALS.length - 1)] || 0);
+    r.lapseCount = Math.max(0, Number(r.lapseCount) || 0);
+    r.repetition = Math.max(0, Number(r.repetition) || 0);
+    r.intervalDays = Math.max(0, Number(r.intervalDays) || baseInterval);
+    r.easeFactor = clampNumber(r.easeFactor, SM2_MIN_EASE, SM2_MAX_EASE, SM2_DEFAULT_EASE);
+    if (!['known', 'fuzzy', 'unknown'].includes(r.lastResult)) r.lastResult = '';
+  });
 }
 
 function normalizeQueueWord(item) {
@@ -327,6 +383,7 @@ function applyImportedBackup(data) {
   }
 
   state = nextState;
+  hydrateReviewFields();
   sessionQueue = [];
   sessionIndex = 0;
   sessionStudied = 0;
@@ -464,6 +521,60 @@ function pendingReviewCount(book = state.currentBook) {
   return n;
 }
 
+function pendingWrongCount(book = state.currentBook) {
+  let n = 0;
+  Object.keys(state.wordRecords).forEach((k) => {
+    const r = state.wordRecords[k];
+    if (!r || r.bookId !== book) return;
+    const incorrect = Math.max(0, Number(r.incorrectCount) || 0);
+    const fuzzy = Math.max(0, Number(r.fuzzyCount) || 0);
+    if (incorrect > 0 || fuzzy >= 2) n += 1;
+  });
+  return n;
+}
+
+function generateWrongQueue(limit = Math.max(20, state.dailyGoal)) {
+  const book = state.currentBook;
+  const lib = getLibraryFor(book);
+  if (!lib.length) return [];
+
+  const byWord = new Map();
+  lib.forEach((w, i) => {
+    byWord.set(nword(w.word), { ...w, originalIndex: i });
+  });
+
+  const ranked = [];
+  Object.keys(state.wordRecords).forEach((k) => {
+    const r = state.wordRecords[k];
+    if (!r || r.bookId !== book || !r.word) return;
+    const libWord = byWord.get(nword(r.word));
+    if (!libWord) return;
+
+    const incorrect = Math.max(0, Number(r.incorrectCount) || 0);
+    const fuzzy = Math.max(0, Number(r.fuzzyCount) || 0);
+    const correct = Math.max(0, Number(r.correctCount) || 0);
+    if (incorrect <= 0 && fuzzy < 2) return;
+
+    const level = Math.max(0, Number(r.level) || 0);
+    const lapse = Math.max(0, Number(r.lapseCount) || 0);
+    const lastPenalty = r.lastResult === 'unknown' ? 2 : r.lastResult === 'fuzzy' ? 1 : 0;
+    const score = incorrect * 2 + fuzzy + lapse + lastPenalty - Math.floor(correct / 2) - level;
+    ranked.push({
+      ...libWord,
+      isReview: true,
+      currentLevel: level,
+      wrongScore: score
+    });
+  });
+
+  ranked.sort((a, b) => (b.wrongScore || 0) - (a.wrongScore || 0));
+  return ranked.slice(0, limit).map((w) => {
+    const out = { ...w };
+    delete out.wrongScore;
+    return out;
+  });
+}
+
 function generateSessionQueue() {
   const book = state.currentBook; ensureProgress(book);
   const lib = getLibraryFor(book); if (!lib.length) return [];
@@ -491,6 +602,89 @@ function updateWordRecord(wordObj, status) {
   else if (status === 'unknown') { r.level = 0; r.incorrectCount += 1; }
   else { r.level = Math.max(r.level - 1, 0); r.fuzzyCount += 1; }
   r.nextReviewDate = addDays(t, REVIEW_INTERVALS[r.level] || 0);
+  state.wordRecords[key] = r;
+}
+
+function updateWordRecord(wordObj, status) {
+  const book = state.currentBook;
+  const t = today();
+  const key = rkey(book, wordObj.word);
+  const existing = state.wordRecords[key] || {
+    bookId: book,
+    word: wordObj.word,
+    level: 0,
+    firstSeen: t,
+    lastSeen: t,
+    nextReviewDate: t,
+    correctCount: 0,
+    incorrectCount: 0,
+    fuzzyCount: 0,
+    lapseCount: 0,
+    repetition: 0,
+    intervalDays: 0,
+    easeFactor: SM2_DEFAULT_EASE
+  };
+
+  const r = { ...existing };
+  r.bookId = book;
+  r.word = wordObj.word;
+  r.firstSeen = String(r.firstSeen || t);
+  r.lastSeen = t;
+  r.correctCount = Math.max(0, Number(r.correctCount) || 0);
+  r.incorrectCount = Math.max(0, Number(r.incorrectCount) || 0);
+  r.fuzzyCount = Math.max(0, Number(r.fuzzyCount) || 0);
+  r.lapseCount = Math.max(0, Number(r.lapseCount) || 0);
+
+  let level = Math.max(0, Number(r.level) || 0);
+  let repetition = Math.max(0, Number(r.repetition) || 0);
+  let intervalDays = clampNumber(
+    r.intervalDays,
+    0,
+    SM2_MAX_INTERVAL_DAYS,
+    Math.max(0, REVIEW_INTERVALS[Math.min(level, REVIEW_INTERVALS.length - 1)] || 0)
+  );
+  let easeFactor = clampNumber(r.easeFactor, SM2_MIN_EASE, SM2_MAX_EASE, SM2_DEFAULT_EASE);
+
+  if (status === 'unknown') {
+    r.incorrectCount += 1;
+    r.lapseCount += 1;
+    repetition = 0;
+    intervalDays = 1;
+    easeFactor = Math.max(SM2_MIN_EASE, easeFactor - 0.2);
+    level = Math.max(0, level - 1);
+  } else if (status === 'fuzzy') {
+    r.fuzzyCount += 1;
+    r.lapseCount += 1;
+    if (repetition === 0) {
+      repetition = 1;
+      intervalDays = 1;
+    } else if (repetition === 1) {
+      repetition = 2;
+      intervalDays = 2;
+    } else {
+      repetition += 1;
+      intervalDays = Math.max(2, Math.round(intervalDays * 0.75));
+    }
+    easeFactor = Math.max(SM2_MIN_EASE, easeFactor - 0.05);
+    level = Math.max(0, intervalToLevel(intervalDays) - 1);
+  } else {
+    r.correctCount += 1;
+    if (repetition === 0) intervalDays = 1;
+    else if (repetition === 1) intervalDays = 3;
+    else intervalDays = Math.max(4, Math.round(intervalDays * easeFactor));
+    repetition += 1;
+    easeFactor = Math.min(SM2_MAX_EASE, easeFactor + 0.02);
+    level = intervalToLevel(intervalDays);
+  }
+
+  intervalDays = clampNumber(intervalDays, 1, SM2_MAX_INTERVAL_DAYS, 1);
+  r.level = level;
+  r.repetition = repetition;
+  r.intervalDays = intervalDays;
+  r.easeFactor = easeFactor;
+  r.lastResult = status;
+  r.nextReviewDate = addDays(t, intervalDays);
+
   state.wordRecords[key] = r;
 }
 
@@ -560,6 +754,7 @@ function updateProgress(fill, text) {
 function updateDashboard() {
   const review = pendingReviewCount(state.currentBook);
   const pendingNew = Math.max(0, state.dailyGoal - state.todayNewCount);
+  const wrong = pendingWrongCount(state.currentBook);
   dom.currentPlan.textContent = `当前计划：${getBookName(state.currentBook)}`;
   dom.statLearned.textContent = String(state.todayNewCount + state.todayReviewCount);
   dom.statStreak.textContent = String(state.streak);
@@ -574,14 +769,25 @@ function updateDashboard() {
   dom.modeListening.classList.toggle('selected', state.learningMode === 'listening');
   dom.modeSpelling.classList.toggle('selected', state.learningMode === 'spelling');
   const saved = getSavedSession();
-  if (dom.quickActions && dom.resumeSessionBtn) {
+  if (dom.resumeSessionBtn) {
     if (saved && Array.isArray(saved.queue) && saved.queue.length) {
       const step = Math.max(1, Math.min((saved.index || 0) + 1, saved.queue.length));
-      dom.quickActions.classList.remove('hidden');
+      dom.resumeSessionBtn.classList.remove('hidden');
       dom.resumeSessionBtn.textContent = `继续上次学习（${modeLabel(saved.mode)} ${step}/${saved.queue.length}）`;
     } else {
-      dom.quickActions.classList.add('hidden');
+      dom.resumeSessionBtn.classList.add('hidden');
     }
+  }
+  if (dom.quickReviewBtn) dom.quickReviewBtn.textContent = `只复习（${review}）`;
+  if (dom.quickNewBtn) dom.quickNewBtn.textContent = `只学新词（${pendingNew}）`;
+  if (dom.quickWrongBtn) {
+    dom.quickWrongBtn.textContent = `只练错题（${wrong}）`;
+    dom.quickWrongBtn.disabled = wrong === 0;
+  }
+  if (dom.quickSpellingBtn) dom.quickSpellingBtn.textContent = '拼写速练';
+  if (dom.quickWrongSpellingBtn) {
+    dom.quickWrongSpellingBtn.textContent = `错题拼写（${wrong}）`;
+    dom.quickWrongSpellingBtn.disabled = wrong === 0;
   }
   const canStart = review > 0 || pendingNew > 0;
   const t = canStart ? `开始今日学习（复习${review} + 新词${pendingNew}）` : '今日任务已完成 ✓';
@@ -608,7 +814,10 @@ function showDashboard() {
     !dom.pictureView.classList.contains('hidden') ||
     !dom.listeningView.classList.contains('hidden') ||
     !dom.spellingView.classList.contains('hidden');
-  if (leavingLearningView && sessionQueue.length && sessionIndex < sessionQueue.length) saveActiveSession();
+  if (leavingLearningView && sessionQueue.length && sessionIndex < sessionQueue.length) {
+    saveActiveSession();
+    showSessionToast('已自动保存本次学习进度');
+  }
   pendingPlan = null;
   clearTimer();
   answerLocked = false;
@@ -699,7 +908,87 @@ function selectMode(mode) {
 }
 
 function startSession() {
-  openPlanPage();
+  openMainPlanPage();
+}
+
+function openPlanWithQueue(queue, mode, modeText) {
+  const review = queue.filter((w) => w && w.isReview).length;
+  const fresh = queue.length - review;
+
+  if (!queue.length) {
+    alert('暂无符合条件的学习内容，请调整快捷方式或返回今日计划。');
+    updateDashboard();
+    return;
+  }
+
+  pendingPlan = {
+    mode,
+    bookId: state.currentBook,
+    queue,
+    reviewCount: review,
+    newCount: fresh
+  };
+
+  dom.planSubtitle.textContent = `${today()} · ${modeText}`;
+  dom.planBook.textContent = getBookName(state.currentBook);
+  dom.planMode.textContent = modeText;
+  dom.planReview.textContent = String(review);
+  dom.planNew.textContent = String(fresh);
+  dom.planTotal.textContent = String(queue.length);
+  dom.planStartBtn.disabled = queue.length === 0;
+
+  showOnly(dom.planView);
+}
+
+function openQuickPlan(type) {
+  const resumed = tryResumeSession();
+  if (resumed) return;
+
+  let mode = state.learningMode;
+  let modeText = modeLabel(mode);
+  let queue = generateSessionQueue();
+
+  if (type === 'review') {
+    queue = queue.filter((w) => w && w.isReview);
+    modeText = `${modeLabel(mode)} · 只复习`;
+  } else if (type === 'new') {
+    queue = queue.filter((w) => w && !w.isReview);
+    modeText = `${modeLabel(mode)} · 只学新词`;
+  } else if (type === 'wrong') {
+    queue = generateWrongQueue();
+    modeText = `${modeLabel(mode)} · 只练错题`;
+  } else if (type === 'spelling') {
+    mode = 'spelling';
+    queue = generateSessionQueue();
+    modeText = `${modeLabel(mode)} · 快速开始`;
+  } else if (type === 'wrongSpelling') {
+    mode = 'spelling';
+    queue = generateWrongQueue();
+    modeText = `${modeLabel(mode)} · 错题专项`;
+  }
+
+  if (!queue.length) {
+    updateDashboard();
+    if (type === 'spelling') alert('当前没有可用于拼写训练的学习内容。');
+    else if (type === 'wrong' || type === 'wrongSpelling') alert('当前还没有错题，先学习一轮再来练错题。');
+    else alert('暂无符合条件的学习内容，请调整快捷方式后重试。');
+    return;
+  }
+
+  openPlanWithQueue(queue, mode, modeText);
+}
+
+function openMainPlanPage() {
+  const resumed = tryResumeSession();
+  if (resumed) return;
+
+  const queue = generateSessionQueue();
+  if (!queue.length) {
+    alert('暂无可学习内容，今日任务可能已经完成。');
+    updateDashboard();
+    return;
+  }
+  openPlanWithQueue(queue, state.learningMode, modeLabel(state.learningMode));
 }
 
 function modeLabel(mode) {
@@ -1164,7 +1453,7 @@ function onKeydown(e) {
 
   if (!dom.resultView.classList.contains('hidden')) {
     if (e.key === 'Escape') showDashboard();
-    else if (e.key === 'Enter') { e.preventDefault(); showDashboard(); openPlanPage(); }
+    else if (e.key === 'Enter') { e.preventDefault(); showDashboard(); openMainPlanPage(); }
     return;
   }
 
@@ -1231,6 +1520,11 @@ function bindEvents() {
   if (dom.installAppBtn) dom.installAppBtn.addEventListener('click', handleInstallApp);
   if (dom.installDismissBtn) dom.installDismissBtn.addEventListener('click', dismissInstallEntry);
   if (dom.resumeSessionBtn) dom.resumeSessionBtn.addEventListener('click', resumeSavedSessionDirect);
+  if (dom.quickReviewBtn) dom.quickReviewBtn.addEventListener('click', () => openQuickPlan('review'));
+  if (dom.quickNewBtn) dom.quickNewBtn.addEventListener('click', () => openQuickPlan('new'));
+  if (dom.quickWrongBtn) dom.quickWrongBtn.addEventListener('click', () => openQuickPlan('wrong'));
+  if (dom.quickSpellingBtn) dom.quickSpellingBtn.addEventListener('click', () => openQuickPlan('spelling'));
+  if (dom.quickWrongSpellingBtn) dom.quickWrongSpellingBtn.addEventListener('click', () => openQuickPlan('wrongSpelling'));
 
   dom.backBtn.addEventListener('click', showDashboard);
   dom.pictureBackBtn.addEventListener('click', showDashboard);
@@ -1273,7 +1567,7 @@ function bindEvents() {
   if (dom.resultBackBtn) dom.resultBackBtn.addEventListener('click', showDashboard);
   if (dom.resultNextBtn) dom.resultNextBtn.addEventListener('click', () => {
     showDashboard();
-    openPlanPage();
+    openMainPlanPage();
   });
 }
 
@@ -1724,6 +2018,7 @@ function bindCustomPlanEvents() {
 
 function init() {
   loadState();
+  hydrateReviewFields();
   loadCustomPlans();
   ensureProgress(state.currentBook);
   saveState();
