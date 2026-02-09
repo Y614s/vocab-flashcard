@@ -1678,6 +1678,55 @@ textarea:focus-visible {
     margin-bottom: 12px;
 }
 
+.wrong-tools {
+    margin-bottom: 10px;
+    display: grid;
+    gap: 8px;
+}
+
+.wrong-search-input,
+.wrong-sort-select {
+    width: 100%;
+    min-height: 40px;
+    border: 1px solid var(--ios-separator);
+    border-radius: 12px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    padding: 0 12px;
+    font-size: 14px;
+    outline: none;
+}
+
+.wrong-search-input::placeholder {
+    color: var(--text-secondary);
+}
+
+.wrong-tool-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: center;
+}
+
+.wrong-only-hard {
+    min-height: 40px;
+    border-radius: 12px;
+    padding: 0 10px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--ios-separator);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.wrong-only-hard input {
+    width: 14px;
+    height: 14px;
+}
+
 .wrong-list {
     display: grid;
     gap: 10px;
@@ -1741,6 +1790,11 @@ textarea:focus-visible {
     text-align: center;
 }
 
+.wrong-more-btn {
+    margin-top: 10px;
+    width: 100%;
+}
+
 .wrong-actions {
     margin-top: 14px;
     display: grid;
@@ -1749,6 +1803,14 @@ textarea:focus-visible {
 }
 
 @media (max-width: 420px) {
+    .wrong-tool-row {
+        grid-template-columns: 1fr;
+    }
+
+    .wrong-only-hard {
+        justify-content: center;
+    }
+
     .wrong-actions {
         grid-template-columns: 1fr;
     }

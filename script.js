@@ -3,6 +3,7 @@ const LEGACY_STORAGE_KEY = 'vocab_flashcard_data';
 const ACTIVE_SESSION_KEY = 'vocab_flashcard_active_session_v1';
 const CUSTOM_PLANS_KEY = 'vocab_custom_plans_v1';
 const BACKUP_VERSION = 1;
+const STATE_SCHEMA_VERSION = 2;
 const INSTALL_DISMISS_KEY = 'vocab_install_dismiss_until_v1';
 const INSTALL_DISMISS_DAYS = 7;
 const REVIEW_INTERVALS = [0, 1, 3, 7, 14, 30];
@@ -10,12 +11,14 @@ const SM2_MIN_EASE = 1.3;
 const SM2_MAX_EASE = 2.9;
 const SM2_DEFAULT_EASE = 2.5;
 const SM2_MAX_INTERVAL_DAYS = 120;
+const WRONG_PAGE_SIZE = 30;
 const MODES = new Set(['flashcard', 'picture', 'listening', 'spelling']);
 const PICTURE_EMOJIS = ['🧩', '🎯', '📚', '🧠', '🔍', '🌟', '🧭', '📝', '🎨', '🪄'];
 let customPlans = [];
 let editingPlanId = null;
 
 const DEFAULT_STATE = {
+  schemaVersion: STATE_SCHEMA_VERSION,
   currentBook: 'cet4',
   dailyGoal: 20,
   learningMode: 'flashcard',
@@ -47,6 +50,12 @@ let pendingPlan = null;
 let deferredInstallPrompt = null;
 let installPromptPending = false;
 let sessionToastTimer = null;
+let wrongBookFilters = {
+  keyword: '',
+  sort: 'score',
+  onlyHard: false
+};
+let wrongBookPage = 1;
 let sessionResult = {
   startAt: 0,
   endAt: 0,
@@ -184,8 +193,12 @@ const dom = {
   wrongView: document.getElementById('wrongView'),
   wrongBackBtn: document.getElementById('wrongBackBtn'),
   wrongSubtitle: document.getElementById('wrongSubtitle'),
+  wrongSearchInput: document.getElementById('wrongSearchInput'),
+  wrongSortSelect: document.getElementById('wrongSortSelect'),
+  wrongOnlyHardChk: document.getElementById('wrongOnlyHardChk'),
   wrongList: document.getElementById('wrongList'),
   wrongEmpty: document.getElementById('wrongEmpty'),
+  wrongMoreBtn: document.getElementById('wrongMoreBtn'),
   wrongPracticeBtn: document.getElementById('wrongPracticeBtn'),
   wrongClearBtn: document.getElementById('wrongClearBtn')
 };
@@ -233,13 +246,29 @@ function showSessionToast(message) {
   }, 1600);
 }
 
+function normalizeStaticLabels() {
+  document.title = '背单词';
+  if (dom.exportDataBtn) dom.exportDataBtn.textContent = '导出备份';
+  if (dom.importDataBtn) dom.importDataBtn.textContent = '导入备份';
+  if (dom.resultBackBtn) dom.resultBackBtn.textContent = '返回首页';
+  if (dom.resultNextBtn) dom.resultNextBtn.textContent = '继续学习';
+  if (dom.wrongPracticeBtn) dom.wrongPracticeBtn.textContent = '练习这些错题';
+  if (dom.wrongClearBtn) dom.wrongClearBtn.textContent = '清空错题记录';
+}
+
 function clampNumber(value, min, max, fallback) {
+  if (window.VocabCore && typeof window.VocabCore.clampNumber === 'function') {
+    return window.VocabCore.clampNumber(value, min, max, fallback);
+  }
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(min, Math.min(max, n));
 }
 
 function intervalToLevel(days) {
+  if (window.VocabCore && typeof window.VocabCore.intervalToLevel === 'function') {
+    return window.VocabCore.intervalToLevel(days);
+  }
   const d = Math.max(0, Number(days) || 0);
   if (d >= 60) return 5;
   if (d >= 21) return 4;
@@ -260,6 +289,7 @@ function escapeHtml(value) {
 
 function hydrateReviewFields() {
   if (!state || !state.wordRecords || typeof state.wordRecords !== 'object') return;
+  state.schemaVersion = STATE_SCHEMA_VERSION;
   Object.keys(state.wordRecords).forEach((key) => {
     const r = state.wordRecords[key];
     if (!r || typeof r !== 'object') return;
@@ -374,7 +404,7 @@ function applyImportedBackup(data) {
   let nextSession = null;
 
   if (data && typeof data === 'object' && data.state && typeof data.state === 'object') {
-    nextState = normalizeState(data.state);
+    nextState = normalizeState(applyStateMigrations(data.state));
     if (data.activeSession && typeof data.activeSession === 'object') {
       const tmp = data.activeSession;
       const wrapped = {
@@ -456,8 +486,36 @@ async function handleBackupFileChange(event) {
   }
 }
 
+function applyStateMigrations(raw) {
+  const src = raw && typeof raw === 'object' ? JSON.parse(JSON.stringify(raw)) : {};
+  let version = Math.max(0, Number(src.schemaVersion) || 0);
+
+  if (version < 1) {
+    version = 1;
+  }
+
+  if (version < 2) {
+    if (src.wordRecords && typeof src.wordRecords === 'object') {
+      Object.keys(src.wordRecords).forEach((key) => {
+        const r = src.wordRecords[key];
+        if (!r || typeof r !== 'object') return;
+        r.lapseCount = Math.max(0, Number(r.lapseCount) || 0);
+        r.repetition = Math.max(0, Number(r.repetition) || 0);
+        r.intervalDays = Math.max(0, Number(r.intervalDays) || 0);
+        r.easeFactor = clampNumber(r.easeFactor, SM2_MIN_EASE, SM2_MAX_EASE, SM2_DEFAULT_EASE);
+        if (!['known', 'fuzzy', 'unknown'].includes(r.lastResult)) r.lastResult = '';
+      });
+    }
+    version = 2;
+  }
+
+  src.schemaVersion = Math.max(STATE_SCHEMA_VERSION, version);
+  return src;
+}
+
 function normalizeState(raw) {
   const s = JSON.parse(JSON.stringify(DEFAULT_STATE));
+  s.schemaVersion = STATE_SCHEMA_VERSION;
   if (!raw || typeof raw !== 'object') return s;
   if (['cet4', 'cet6', 'kaoyan'].includes(raw.currentBook)) s.currentBook = raw.currentBook;
   const g = Number(raw.dailyGoal); s.dailyGoal = Number.isFinite(g) ? Math.max(5, Math.min(50, g)) : s.dailyGoal;
@@ -494,7 +552,7 @@ function loadState() {
     return;
   }
   try {
-    state = normalizeState(JSON.parse(raw));
+    state = normalizeState(applyStateMigrations(JSON.parse(raw)));
   } catch (e) {
     state = JSON.parse(JSON.stringify(DEFAULT_STATE));
   }
@@ -504,7 +562,10 @@ function loadState() {
   }
 }
 
-function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function saveState() {
+  state.schemaVersion = STATE_SCHEMA_VERSION;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
 function markStudyToday() {
   const t = today();
   if (state.lastStudyDate === t) return;
@@ -554,6 +615,15 @@ function generateWrongQueue(limit = Math.max(20, state.dailyGoal)) {
   const book = state.currentBook;
   const lib = getLibraryFor(book);
   if (!lib.length) return [];
+
+  if (window.VocabCore && typeof window.VocabCore.buildWrongQueue === 'function') {
+    return window.VocabCore.buildWrongQueue({
+      bookId: book,
+      library: lib,
+      records: state.wordRecords,
+      limit
+    });
+  }
 
   const byWord = new Map();
   lib.forEach((w, i) => {
@@ -617,6 +687,7 @@ function getWrongEntries(book = state.currentBook, limit = 200) {
       incorrect,
       fuzzy,
       lapse,
+      lastSeen: r.lastSeen || '',
       nextReviewDate: r.nextReviewDate || '',
       score
     });
@@ -624,6 +695,62 @@ function getWrongEntries(book = state.currentBook, limit = 200) {
 
   list.sort((a, b) => b.score - a.score);
   return list.slice(0, Math.max(1, Number(limit) || 200));
+}
+
+function normalizeSearchText(value) {
+  if (window.VocabCore && typeof window.VocabCore.normalizeSearchText === 'function') {
+    return window.VocabCore.normalizeSearchText(value);
+  }
+  return String(value || '').trim().toLowerCase();
+}
+
+function wrongEntryMatches(entry, keyword) {
+  if (window.VocabCore && typeof window.VocabCore.wrongEntryMatches === 'function') {
+    return window.VocabCore.wrongEntryMatches(entry, keyword);
+  }
+  const k = normalizeSearchText(keyword);
+  if (!k) return true;
+  const word = normalizeSearchText(entry.word);
+  const def = normalizeSearchText(entry.definition);
+  return word.includes(k) || def.includes(k);
+}
+
+function sortWrongEntries(list, sortKey) {
+  if (window.VocabCore && typeof window.VocabCore.sortWrongEntries === 'function') {
+    return window.VocabCore.sortWrongEntries(list, sortKey);
+  }
+  const x = [...list];
+  if (sortKey === 'alpha') {
+    x.sort((a, b) => String(a.word || '').localeCompare(String(b.word || ''), 'en'));
+    return x;
+  }
+  if (sortKey === 'due') {
+    x.sort((a, b) => String(a.nextReviewDate || '').localeCompare(String(b.nextReviewDate || '')));
+    return x;
+  }
+  if (sortKey === 'recent') {
+    x.sort((a, b) => String(b.lastSeen || '').localeCompare(String(a.lastSeen || '')));
+    return x;
+  }
+  x.sort((a, b) => b.score - a.score);
+  return x;
+}
+
+function syncWrongFilterControls() {
+  if (dom.wrongSearchInput) dom.wrongSearchInput.value = wrongBookFilters.keyword;
+  if (dom.wrongSortSelect) dom.wrongSortSelect.value = wrongBookFilters.sort;
+  if (dom.wrongOnlyHardChk) dom.wrongOnlyHardChk.checked = wrongBookFilters.onlyHard;
+}
+
+function getVisibleWrongEntries(book = state.currentBook) {
+  const allEntries = getWrongEntries(book, 2000);
+  if (window.VocabCore && typeof window.VocabCore.filterWrongEntries === 'function') {
+    return window.VocabCore.filterWrongEntries(allEntries, wrongBookFilters);
+  }
+  const filtered = allEntries
+    .filter((item) => wrongEntryMatches(item, wrongBookFilters.keyword))
+    .filter((item) => !wrongBookFilters.onlyHard || item.score >= 6);
+  return sortWrongEntries(filtered, wrongBookFilters.sort);
 }
 
 function generateSessionQueue() {
@@ -695,6 +822,42 @@ function updateWordRecord(wordObj, status) {
     Math.max(0, REVIEW_INTERVALS[Math.min(level, REVIEW_INTERVALS.length - 1)] || 0)
   );
   let easeFactor = clampNumber(r.easeFactor, SM2_MIN_EASE, SM2_MAX_EASE, SM2_DEFAULT_EASE);
+
+  if (window.VocabCore && typeof window.VocabCore.computeReviewProgress === 'function') {
+    const next = window.VocabCore.computeReviewProgress(
+      { level, repetition, intervalDays, easeFactor },
+      status,
+      {
+        sm2MinEase: SM2_MIN_EASE,
+        sm2MaxEase: SM2_MAX_EASE,
+        sm2DefaultEase: SM2_DEFAULT_EASE,
+        sm2MaxIntervalDays: SM2_MAX_INTERVAL_DAYS
+      }
+    );
+    level = next.level;
+    repetition = next.repetition;
+    intervalDays = next.intervalDays;
+    easeFactor = next.easeFactor;
+    if (status === 'unknown') {
+      r.incorrectCount += 1;
+      r.lapseCount += 1;
+    } else if (status === 'fuzzy') {
+      r.fuzzyCount += 1;
+      r.lapseCount += 1;
+    } else {
+      r.correctCount += 1;
+    }
+
+    intervalDays = clampNumber(intervalDays, 1, SM2_MAX_INTERVAL_DAYS, 1);
+    r.level = level;
+    r.repetition = repetition;
+    r.intervalDays = intervalDays;
+    r.easeFactor = easeFactor;
+    r.lastResult = status;
+    r.nextReviewDate = addDays(t, intervalDays);
+    state.wordRecords[key] = r;
+    return;
+  }
 
   if (status === 'unknown') {
     r.incorrectCount += 1;
@@ -951,6 +1114,10 @@ function setupSession(view, preparedQueue) {
 
 function selectBook(book) {
   if (!['cet4', 'cet6', 'kaoyan'].includes(book)) return;
+  wrongBookFilters.keyword = '';
+  wrongBookFilters.onlyHard = false;
+  wrongBookFilters.sort = 'score';
+  wrongBookPage = 1;
   state.currentBook = book; ensureProgress(book); saveState(); updateDashboard();
 }
 
@@ -1048,15 +1215,34 @@ function openMainPlanPage() {
 
 function renderWrongBook() {
   if (!dom.wrongList || !dom.wrongEmpty || !dom.wrongSubtitle) return;
-  const entries = getWrongEntries(state.currentBook);
-  const total = entries.length;
-  dom.wrongSubtitle.textContent = `${getBookName(state.currentBook)} · 错题 ${total} 个`;
+  const allEntries = getWrongEntries(state.currentBook, 2000);
+  const total = allEntries.length;
+  const visibleEntries = getVisibleWrongEntries(state.currentBook);
+  const totalVisible = visibleEntries.length;
+  const maxPage = Math.max(1, Math.ceil(totalVisible / WRONG_PAGE_SIZE));
+  wrongBookPage = Math.max(1, Math.min(wrongBookPage, maxPage));
+  const shown = Math.min(totalVisible, wrongBookPage * WRONG_PAGE_SIZE);
+  const entries = visibleEntries.slice(0, shown);
+
+  dom.wrongSubtitle.textContent = `${getBookName(state.currentBook)} · 错题 ${shown}/${total} 个`;
 
   if (!total) {
     dom.wrongList.innerHTML = '';
+    dom.wrongEmpty.textContent = '当前还没有错题，继续保持。';
     dom.wrongEmpty.classList.remove('hidden');
     if (dom.wrongPracticeBtn) dom.wrongPracticeBtn.disabled = true;
     if (dom.wrongClearBtn) dom.wrongClearBtn.disabled = true;
+    if (dom.wrongMoreBtn) dom.wrongMoreBtn.classList.add('hidden');
+    return;
+  }
+
+  if (!shown) {
+    dom.wrongList.innerHTML = '';
+    dom.wrongEmpty.textContent = '没有符合筛选条件的错题。';
+    dom.wrongEmpty.classList.remove('hidden');
+    if (dom.wrongPracticeBtn) dom.wrongPracticeBtn.disabled = true;
+    if (dom.wrongClearBtn) dom.wrongClearBtn.disabled = false;
+    if (dom.wrongMoreBtn) dom.wrongMoreBtn.classList.add('hidden');
     return;
   }
 
@@ -1070,7 +1256,7 @@ function renderWrongBook() {
       + `<div class="wrong-main">`
       + `<div class="wrong-word">${escapeHtml(item.word)}</div>`
       + `<div class="wrong-meaning">${escapeHtml(item.definition || '（释义不可用）')}</div>`
-      + `<div class="wrong-meta">错 ${item.incorrect} · 模糊 ${item.fuzzy} · 计划复习 ${escapeHtml(item.nextReviewDate || '今天')}</div>`
+      + `<div class="wrong-meta">错 ${item.incorrect} · 模糊 ${item.fuzzy} · 计划复习 ${escapeHtml(item.nextReviewDate || '今天')} · 强度 ${item.score}</div>`
       + `</div>`
       + `<button class="wrong-remove-btn" type="button" data-wrong-remove="${escapeHtml(item.key)}">移除</button>`
       + `</div>`
@@ -1078,11 +1264,20 @@ function renderWrongBook() {
   )).join('');
 
   dom.wrongList.innerHTML = html;
+  if (dom.wrongMoreBtn) {
+    const remain = Math.max(0, totalVisible - shown);
+    const hasMore = remain > 0;
+    dom.wrongMoreBtn.classList.toggle('hidden', !hasMore);
+    dom.wrongMoreBtn.disabled = !hasMore;
+    dom.wrongMoreBtn.textContent = hasMore ? `加载更多（剩余 ${remain}）` : '已全部加载';
+  }
 }
 
 function showWrongBookPage() {
   clearTimer();
   hideFeedback();
+  wrongBookPage = 1;
+  syncWrongFilterControls();
   renderWrongBook();
   showOnly(dom.wrongView);
 }
@@ -1119,6 +1314,23 @@ function clearWrongRecordsForCurrentBook() {
   saveState();
   renderWrongBook();
   updateDashboard();
+}
+
+function startWrongPracticeFromBook() {
+  const entries = getVisibleWrongEntries(state.currentBook);
+  if (!entries.length) {
+    alert('当前筛选结果没有可练习错题。');
+    return;
+  }
+
+  const keySet = new Set(entries.map((item) => item.key));
+  const queue = generateWrongQueue(2000).filter((w) => keySet.has(rkey(state.currentBook, w.word)));
+  if (!queue.length) {
+    alert('当前筛选结果无法生成练习队列，请调整筛选条件后重试。');
+    return;
+  }
+
+  openPlanWithQueue(queue, state.learningMode, `${modeLabel(state.learningMode)} · 错题筛选练习`);
 }
 
 function modeLabel(mode) {
@@ -1589,7 +1801,11 @@ function onKeydown(e) {
 
   if (dom.wrongView && !dom.wrongView.classList.contains('hidden')) {
     if (e.key === 'Escape') showDashboard();
-    else if (e.key === 'Enter') { e.preventDefault(); openQuickPlan('wrong', { allowResume: false }); }
+    else if (e.key === 'Enter') { e.preventDefault(); startWrongPracticeFromBook(); }
+    else if (e.key === '/' && dom.wrongSearchInput) {
+      e.preventDefault();
+      dom.wrongSearchInput.focus();
+    }
     return;
   }
 
@@ -1668,8 +1884,35 @@ function bindEvents() {
   dom.listeningBackBtn.addEventListener('click', showDashboard);
   dom.spellingBackBtn.addEventListener('click', showDashboard);
   if (dom.wrongBackBtn) dom.wrongBackBtn.addEventListener('click', showDashboard);
-  if (dom.wrongPracticeBtn) dom.wrongPracticeBtn.addEventListener('click', () => openQuickPlan('wrong', { allowResume: false }));
+  if (dom.wrongPracticeBtn) dom.wrongPracticeBtn.addEventListener('click', startWrongPracticeFromBook);
   if (dom.wrongClearBtn) dom.wrongClearBtn.addEventListener('click', clearWrongRecordsForCurrentBook);
+  if (dom.wrongMoreBtn) {
+    dom.wrongMoreBtn.addEventListener('click', () => {
+      wrongBookPage += 1;
+      renderWrongBook();
+    });
+  }
+  if (dom.wrongSearchInput) {
+    dom.wrongSearchInput.addEventListener('input', (e) => {
+      wrongBookFilters.keyword = String(e.target.value || '').trim();
+      wrongBookPage = 1;
+      renderWrongBook();
+    });
+  }
+  if (dom.wrongSortSelect) {
+    dom.wrongSortSelect.addEventListener('change', (e) => {
+      wrongBookFilters.sort = String(e.target.value || 'score');
+      wrongBookPage = 1;
+      renderWrongBook();
+    });
+  }
+  if (dom.wrongOnlyHardChk) {
+    dom.wrongOnlyHardChk.addEventListener('change', (e) => {
+      wrongBookFilters.onlyHard = Boolean(e.target.checked);
+      wrongBookPage = 1;
+      renderWrongBook();
+    });
+  }
   if (dom.wrongList) {
     dom.wrongList.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-wrong-remove]');
@@ -2169,6 +2412,7 @@ function init() {
   loadCustomPlans();
   ensureProgress(state.currentBook);
   saveState();
+  normalizeStaticLabels();
   bindEvents();
   bindCustomPlanEvents();
   showDashboard();

@@ -620,8 +620,25 @@
                 <p class="result-subtitle" id="wrongSubtitle">查看并管理当前词书错题</p>
             </section>
 
+            <section class="wrong-tools">
+                <input class="wrong-search-input" id="wrongSearchInput" type="search" placeholder="搜索单词或释义">
+                <div class="wrong-tool-row">
+                    <select class="wrong-sort-select" id="wrongSortSelect">
+                        <option value="score">按错题强度</option>
+                        <option value="recent">按最近出错</option>
+                        <option value="due">按复习日期</option>
+                        <option value="alpha">按字母顺序</option>
+                    </select>
+                    <label class="wrong-only-hard">
+                        <input id="wrongOnlyHardChk" type="checkbox">
+                        <span>仅高频错题</span>
+                    </label>
+                </div>
+            </section>
+
             <section class="wrong-list" id="wrongList"></section>
             <section class="wrong-empty hidden" id="wrongEmpty">当前还没有错题，继续保持。</section>
+            <button class="data-btn wrong-more-btn hidden" id="wrongMoreBtn" type="button">加载更多</button>
 
             <div class="wrong-actions">
                 <button class="data-btn" id="wrongPracticeBtn" type="button">练习这些错题</button>
@@ -630,6 +647,7 @@
         </div>
     </div>
     <script src="vocab_library.js"></script>
+    <script src="core_utils.js"></script>
     <div class="session-toast hidden" id="sessionToast">已自动保存学习进度</div>
     <script src="script.js"></script>
 </body>
