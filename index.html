@@ -1,24 +1,39 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
     <meta name="description" content="手机端背单词应用，支持闪卡、听音、拼写和图片选择模式。">
     <meta name="theme-color" content="#0e7490">
     <meta name="application-name" content="背单词">
     <meta name="mobile-web-app-capable" content="yes">
+    <!-- iOS PWA 支持 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="背单词">
+    <meta name="format-detection" content="telephone=no">
+    <!-- iOS 启动画面 -->
+    <link rel="apple-touch-startup-image" href="./icon.svg">
     <link rel="manifest" href="./manifest.json">
     <link rel="icon" href="./icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="./icon.svg">
     <title>背单词</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
+    <!-- 离线状态指示器 -->
+    <div class="offline-indicator hidden" id="offlineIndicator">
+        <span class="offline-icon">📴</span>
+        <span class="offline-text">离线模式</span>
+    </div>
+
     <div class="view view-dashboard" id="dashboardView">
         <div class="dashboard-container">
             <header class="dashboard-header">
@@ -26,10 +41,20 @@
                 <p class="current-plan" id="currentPlan">当前计划：大学英语四级</p>
             </header>
 
+            <!-- 自定义计划入口 -->
+            <section class="custom-plan-entry">
+                <button class="custom-plan-btn" id="customPlanBtn" type="button">
+                    <span class="custom-plan-icon">📋</span>
+                    <span class="custom-plan-text">自定义学习计划</span>
+                    <span class="custom-plan-arrow">›</span>
+                </button>
+            </section>
+
             <section class="book-selection">
                 <h2 class="section-title">选择词书</h2>
                 <div class="book-cards">
-                    <button class="book-card selected" type="button" data-book="cet4" id="bookCet4" aria-label="选择大学英语四级">
+                    <button class="book-card selected" type="button" data-book="cet4" id="bookCet4"
+                        aria-label="选择大学英语四级">
                         <span class="book-icon">📘</span>
                         <span class="book-info">
                             <span class="book-name">大学英语四级</span>
@@ -83,7 +108,10 @@
                         <p class="install-title">下载 App 到手机桌面</p>
                         <p class="install-tip" id="installTip">添加到主屏幕后可离线学习，进度保存在本机。</p>
                     </div>
-                    <button class="data-btn install-btn" id="installAppBtn" type="button">下载 App</button>
+                    <div class="install-actions">
+                        <button class="data-btn install-btn" id="installAppBtn" type="button">下载 App</button>
+                        <button class="install-dismiss-btn" id="installDismissBtn" type="button" aria-label="暂不显示安装提示">暂不显示</button>
+                    </div>
                 </div>
             </section>
 
@@ -136,6 +164,9 @@
                 </div>
             </section>
 
+            <section class="quick-actions hidden" id="quickActions">
+                <button class="data-btn quick-resume-btn" id="resumeSessionBtn" type="button">继续上次学习</button>
+            </section>
             <button class="start-btn" id="startSessionBtn" type="button">
                 <span class="start-btn-icon">▶</span>
                 <span class="start-btn-text">开始今日学习</span>
@@ -147,7 +178,8 @@
         <div class="container">
             <button class="back-btn" id="planBackBtn" type="button" aria-label="返回首页">
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round"></path>
                 </svg>
             </button>
 
@@ -190,7 +222,8 @@
         <div class="container">
             <button class="back-btn" id="backBtn" type="button" aria-label="返回首页">
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round"></path>
                 </svg>
             </button>
 
@@ -234,8 +267,11 @@
             <button class="play-btn" id="playBtn" type="button" aria-label="播放发音">
                 <svg class="play-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                     <path d="M3 9V15H7L12 20V4L7 9H3Z" fill="currentColor"></path>
-                    <path d="M16.5 12C16.5 10.23 15.48 8.71 14 7.97V16.02C15.48 15.29 16.5 13.77 16.5 12Z" fill="currentColor"></path>
-                    <path d="M14 3.23V5.29C16.89 6.15 19 8.83 19 12C19 15.17 16.89 17.85 14 18.71V20.77C18.01 19.86 21 16.28 21 12C21 7.72 18.01 4.14 14 3.23Z" fill="currentColor"></path>
+                    <path d="M16.5 12C16.5 10.23 15.48 8.71 14 7.97V16.02C15.48 15.29 16.5 13.77 16.5 12Z"
+                        fill="currentColor"></path>
+                    <path
+                        d="M14 3.23V5.29C16.89 6.15 19 8.83 19 12C19 15.17 16.89 17.85 14 18.71V20.77C18.01 19.86 21 16.28 21 12C21 7.72 18.01 4.14 14 3.23Z"
+                        fill="currentColor"></path>
                 </svg>
             </button>
 
@@ -272,7 +308,8 @@
         <div class="container">
             <button class="back-btn" id="pictureBackBtn" type="button" aria-label="返回首页">
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round"></path>
                 </svg>
             </button>
 
@@ -317,7 +354,8 @@
         <div class="container">
             <button class="back-btn" id="listeningBackBtn" type="button" aria-label="返回首页">
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round"></path>
                 </svg>
             </button>
 
@@ -330,8 +368,11 @@
                 <button class="listening-play-btn" id="listeningPlayBtn" type="button" aria-label="播放发音">
                     <svg class="play-icon-large" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                         <path d="M3 9V15H7L12 20V4L7 9H3Z" fill="currentColor"></path>
-                        <path d="M16.5 12C16.5 10.23 15.48 8.71 14 7.97V16.02C15.48 15.29 16.5 13.77 16.5 12Z" fill="currentColor"></path>
-                        <path d="M14 3.23V5.29C16.89 6.15 19 8.83 19 12C19 15.17 16.89 17.85 14 18.71V20.77C18.01 19.86 21 16.28 21 12C21 7.72 18.01 4.14 14 3.23Z" fill="currentColor"></path>
+                        <path d="M16.5 12C16.5 10.23 15.48 8.71 14 7.97V16.02C15.48 15.29 16.5 13.77 16.5 12Z"
+                            fill="currentColor"></path>
+                        <path
+                            d="M14 3.23V5.29C16.89 6.15 19 8.83 19 12C19 15.17 16.89 17.85 14 18.71V20.77C18.01 19.86 21 16.28 21 12C21 7.72 18.01 4.14 14 3.23Z"
+                            fill="currentColor"></path>
                     </svg>
                 </button>
                 <div class="listening-hint">点击播放发音，选择正确释义</div>
@@ -367,7 +408,8 @@
         <div class="container">
             <button class="back-btn" id="spellingBackBtn" type="button" aria-label="返回首页">
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round"></path>
                 </svg>
             </button>
 
@@ -477,7 +519,88 @@
         </div>
     </div>
 
+    <!-- 自定义计划列表视图 -->
+    <div class="view view-custom-plans hidden" id="customPlansView">
+        <div class="container">
+            <button class="back-btn" id="customPlansBackBtn" type="button" aria-label="返回首页">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round"></path>
+                </svg>
+            </button>
+
+            <section class="custom-plans-header">
+                <h2 class="custom-plans-title">自定义学习计划</h2>
+                <p class="custom-plans-subtitle">创建并管理你的个性化学习计划</p>
+            </section>
+
+            <div class="custom-plans-list" id="customPlansList">
+                <!-- 动态填充计划列表 -->
+            </div>
+
+            <button class="start-btn create-plan-btn" id="createPlanBtn" type="button">
+                <span class="start-btn-icon">+</span>
+                <span class="start-btn-text">创建新计划</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 创建/编辑计划模态框 -->
+    <dialog class="custom-plan-modal" id="customPlanModal">
+        <div class="modal-content">
+            <h2>📋 创建学习计划</h2>
+
+            <div class="plan-form-group">
+                <label for="planNameInput">计划名称</label>
+                <input type="text" id="planNameInput" placeholder="我的四级计划" maxlength="20">
+            </div>
+
+            <div class="plan-form-group">
+                <label for="planBookSelect">选择词书</label>
+                <select id="planBookSelect">
+                    <option value="cet4">大学英语四级</option>
+                    <option value="cet6">大学英语六级</option>
+                    <option value="kaoyan">考研英语</option>
+                </select>
+            </div>
+
+            <div class="plan-form-group">
+                <label for="planModeSelect">学习模式</label>
+                <select id="planModeSelect">
+                    <option value="flashcard">经典闪卡</option>
+                    <option value="picture">图片选义</option>
+                    <option value="listening">听音选义</option>
+                    <option value="spelling">拼写模式</option>
+                </select>
+            </div>
+
+            <div class="plan-form-group">
+                <label for="planGoalInput">每日目标</label>
+                <div class="plan-goal-control">
+                    <input type="range" id="planGoalInput" min="5" max="100" step="5" value="20">
+                    <span class="plan-goal-value" id="planGoalValue">20</span>
+                </div>
+            </div>
+
+            <div class="plan-form-group">
+                <label>词汇范围</label>
+                <div class="plan-range-control">
+                    <input type="number" id="planRangeStart" placeholder="起始" min="1" value="1">
+                    <span class="range-separator">—</span>
+                    <input type="number" id="planRangeEnd" placeholder="结束" min="1" value="500">
+                </div>
+                <p class="plan-range-hint" id="planRangeHint">可选，留空则学习全部词汇</p>
+            </div>
+
+            <div class="modal-actions">
+                <button class="modal-btn modal-btn-cancel" id="cancelPlanModal" type="button">取消</button>
+                <button class="modal-btn modal-btn-confirm" id="savePlanBtn" type="button">保存计划</button>
+            </div>
+        </div>
+    </dialog>
+
     <script src="vocab_library.js"></script>
     <script src="script.js"></script>
 </body>
+
 </html>

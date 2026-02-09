@@ -1481,6 +1481,26 @@ body {
     white-space: nowrap;
 }
 
+.install-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+}
+
+.install-dismiss-btn {
+    min-height: 32px;
+    border-radius: 10px;
+    color: var(--text-secondary);
+    background: transparent;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.install-dismiss-btn:active {
+    background: var(--bg-tertiary);
+}
+
 .data-btn {
     min-height: 44px;
     border-radius: 12px;
@@ -1494,6 +1514,18 @@ body {
     transform: scale(0.98);
 }
 
+.quick-actions {
+    margin-top: 14px;
+}
+
+.quick-resume-btn {
+    width: 100%;
+    background: rgba(0, 122, 255, 0.12);
+    color: var(--ios-blue);
+    border: 1px solid rgba(0, 122, 255, 0.24);
+    font-size: 15px;
+}
+
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible {
@@ -1502,6 +1534,7 @@ textarea:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
     *,
     *::before,
     *::after {
@@ -1585,8 +1618,366 @@ textarea:focus-visible {
         align-items: stretch;
     }
 
+    .install-actions {
+        width: 100%;
+    }
+
     .install-btn {
         width: 100%;
         min-width: 0;
+    }
+}
+
+/* ========================================
+   离线状态指示器
+   ======================================== */
+.offline-indicator {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, #FF9500 0%, #FF6B00 100%);
+    color: white;
+    padding: 8px 16px;
+    padding-top: max(8px, env(safe-area-inset-top));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 9999;
+    box-shadow: 0 2px 10px rgba(255, 149, 0, 0.3);
+}
+
+.offline-indicator.hidden {
+    display: none;
+}
+
+.offline-icon {
+    font-size: 16px;
+}
+
+.offline-text {
+    letter-spacing: 0.5px;
+}
+
+/* 有离线指示器时调整页面顶部间距 */
+body.is-offline .view {
+    padding-top: calc(40px + env(safe-area-inset-top));
+}
+
+/* ========================================
+   自定义计划入口按钮
+   ======================================== */
+.custom-plan-entry {
+    margin-bottom: var(--spacing-lg);
+}
+
+.custom-plan-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.custom-plan-btn:active {
+    transform: scale(0.98);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+.custom-plan-icon {
+    font-size: 24px;
+}
+
+.custom-plan-text {
+    flex: 1;
+    text-align: left;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.custom-plan-arrow {
+    font-size: 24px;
+    opacity: 0.8;
+}
+
+/* ========================================
+   自定义计划列表视图
+   ======================================== */
+.view-custom-plans .container {
+    padding-top: 60px;
+    padding-bottom: 120px;
+}
+
+.custom-plans-header {
+    text-align: center;
+    margin-bottom: var(--spacing-xl);
+}
+
+.custom-plans-title {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.custom-plans-subtitle {
+    color: var(--text-secondary);
+    font-size: 15px;
+}
+
+.custom-plans-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.custom-plan-item {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    box-shadow: var(--card-shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: transform 0.2s;
+}
+
+.custom-plan-item:active {
+    transform: scale(0.98);
+}
+
+.plan-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.plan-item-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.plan-item-badge {
+    display: flex;
+    gap: 6px;
+}
+
+.plan-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.plan-badge-book {
+    background: rgba(0, 122, 255, 0.1);
+    color: var(--ios-blue);
+}
+
+.plan-badge-mode {
+    background: rgba(52, 199, 89, 0.1);
+    color: var(--ios-green);
+}
+
+.plan-item-meta {
+    display: flex;
+    gap: 16px;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.plan-item-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.plan-action-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+.plan-action-start {
+    background: var(--ios-blue);
+    color: white;
+}
+
+.plan-action-start:active {
+    background: #0062CC;
+}
+
+.plan-action-delete {
+    background: var(--bg-tertiary);
+    color: var(--ios-red);
+}
+
+.plan-action-delete:active {
+    background: rgba(255, 59, 48, 0.1);
+}
+
+.empty-plans {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+}
+
+.empty-plans-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.empty-plans-text {
+    font-size: 16px;
+}
+
+.create-plan-btn {
+    position: fixed;
+    bottom: 30px;
+}
+
+/* ========================================
+   自定义计划模态框
+   ======================================== */
+.custom-plan-modal .modal-content {
+    padding: 24px;
+}
+
+.custom-plan-modal h2 {
+    text-align: center;
+    font-size: 20px;
+    margin-bottom: 24px;
+}
+
+.plan-form-group {
+    margin-bottom: 20px;
+}
+
+.plan-form-group label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.plan-form-group input[type="text"],
+.plan-form-group select {
+    width: 100%;
+    padding: 12px 16px;
+    background: var(--bg-primary);
+    border: 1px solid var(--ios-separator);
+    border-radius: var(--radius-md);
+    font-size: 16px;
+    color: var(--text-primary);
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.plan-form-group select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    padding-right: 40px;
+}
+
+.plan-goal-control {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.plan-goal-control input[type="range"] {
+    flex: 1;
+}
+
+.plan-goal-value {
+    min-width: 36px;
+    text-align: center;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--ios-blue);
+}
+
+.plan-range-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.plan-range-control input[type="number"] {
+    flex: 1;
+    padding: 12px 16px;
+    background: var(--bg-primary);
+    border: 1px solid var(--ios-separator);
+    border-radius: var(--radius-md);
+    font-size: 16px;
+    color: var(--text-primary);
+    text-align: center;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.range-separator {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.plan-range-hint {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+}
+
+.custom-plan-modal .modal-actions {
+    margin-top: 24px;
+    border-top: none;
+    gap: 12px;
+}
+
+.custom-plan-modal .modal-btn {
+    border-radius: var(--radius-md);
+    border: 1px solid var(--ios-separator);
+}
+
+.custom-plan-modal .modal-btn-cancel {
+    border-right: 1px solid var(--ios-separator);
+    background: var(--bg-tertiary);
+}
+
+.custom-plan-modal .modal-btn-confirm {
+    background: var(--ios-blue);
+    color: white;
+    border-color: var(--ios-blue);
+}
+
+/* iOS 触摸优化 */
+@supports (-webkit-touch-callout: none) {
+
+    button,
+    .book-card,
+    .mode-card,
+    .custom-plan-btn,
+    .plan-action-btn {
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    input,
+    select,
+    textarea {
+        font-size: 16px;
+        /* 防止 iOS 缩放 */
     }
 }

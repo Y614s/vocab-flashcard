@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v6';
 const APP_SHELL_CACHE = `vocab-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `vocab-runtime-${CACHE_VERSION}`;
 
@@ -7,6 +7,7 @@ const APP_SHELL_ASSETS = [
   './index.html',
   './style.css',
   './script.js',
+  './vocab_library.js',
   './manifest.json',
   './icon.svg'
 ];

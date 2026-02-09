@@ -1,10 +1,15 @@
 const STORAGE_KEY = 'vocab_flashcard_data_v2';
 const LEGACY_STORAGE_KEY = 'vocab_flashcard_data';
 const ACTIVE_SESSION_KEY = 'vocab_flashcard_active_session_v1';
+const CUSTOM_PLANS_KEY = 'vocab_custom_plans_v1';
 const BACKUP_VERSION = 1;
+const INSTALL_DISMISS_KEY = 'vocab_install_dismiss_until_v1';
+const INSTALL_DISMISS_DAYS = 7;
 const REVIEW_INTERVALS = [0, 1, 3, 7, 14, 30];
 const MODES = new Set(['flashcard', 'picture', 'listening', 'spelling']);
 const PICTURE_EMOJIS = ['🧩', '🎯', '📚', '🧠', '🔍', '🌟', '🧭', '📝', '🎨', '🪄'];
+let customPlans = [];
+let editingPlanId = null;
 
 const DEFAULT_STATE = {
   currentBook: 'cet4',
@@ -36,6 +41,7 @@ let spellingTarget = '';
 let spellingHintCount = 0;
 let pendingPlan = null;
 let deferredInstallPrompt = null;
+let installPromptPending = false;
 let sessionResult = {
   startAt: 0,
   endAt: 0,
@@ -52,6 +58,23 @@ const dom = {
   pictureView: document.getElementById('pictureView'),
   listeningView: document.getElementById('listeningView'),
   spellingView: document.getElementById('spellingView'),
+  offlineIndicator: document.getElementById('offlineIndicator'),
+  customPlanBtn: document.getElementById('customPlanBtn'),
+  customPlansView: document.getElementById('customPlansView'),
+  customPlansBackBtn: document.getElementById('customPlansBackBtn'),
+  customPlansList: document.getElementById('customPlansList'),
+  createPlanBtn: document.getElementById('createPlanBtn'),
+  customPlanModal: document.getElementById('customPlanModal'),
+  planNameInput: document.getElementById('planNameInput'),
+  planBookSelect: document.getElementById('planBookSelect'),
+  planModeSelect: document.getElementById('planModeSelect'),
+  planGoalInput: document.getElementById('planGoalInput'),
+  planGoalValue: document.getElementById('planGoalValue'),
+  planRangeStart: document.getElementById('planRangeStart'),
+  planRangeEnd: document.getElementById('planRangeEnd'),
+  planRangeHint: document.getElementById('planRangeHint'),
+  cancelPlanModal: document.getElementById('cancelPlanModal'),
+  savePlanBtn: document.getElementById('savePlanBtn'),
   currentPlan: document.getElementById('currentPlan'),
   bookCet4: document.getElementById('bookCet4'),
   bookCet6: document.getElementById('bookCet6'),
@@ -61,6 +84,8 @@ const dom = {
   statLearned: document.getElementById('statLearned'),
   statStreak: document.getElementById('statStreak'),
   statTotal: document.getElementById('statTotal'),
+  quickActions: document.getElementById('quickActions'),
+  resumeSessionBtn: document.getElementById('resumeSessionBtn'),
   startSessionBtn: document.getElementById('startSessionBtn'),
   planView: document.getElementById('planView'),
   planBackBtn: document.getElementById('planBackBtn'),
@@ -77,6 +102,7 @@ const dom = {
   installEntry: document.getElementById('installEntry'),
   installTip: document.getElementById('installTip'),
   installAppBtn: document.getElementById('installAppBtn'),
+  installDismissBtn: document.getElementById('installDismissBtn'),
   modeFlashcard: document.getElementById('modeFlashcard'),
   modePicture: document.getElementById('modePicture'),
   modeListening: document.getElementById('modeListening'),
@@ -150,10 +176,29 @@ function today() { const d = new Date(); return `${d.getFullYear()}-${String(d.g
 function parseDay(s) { const [y, m, d] = String(s || '').split('-').map(Number); return y && m && d ? new Date(y, m - 1, d) : null; }
 function dayDiff(a, b) { const da = parseDay(a); const db = parseDay(b); return da && db ? Math.round((db - da) / 86400000) : 0; }
 function addDays(s, x) { const d = parseDay(s) || new Date(); d.setDate(d.getDate() + x); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
-function shuffle(arr) { const x = [...arr]; for (let i = x.length - 1; i > 0; i -= 1) { const j = Math.floor(Math.random() * (i + 1)); [x[i], x[j]] = [x[j], x[i]]; } return x; }
+function shuffle(arr) { const x = [...arr]; for (let i = x.length - 1; i > 0; i -= 1) { const j = Math.floor(Math.random() * (i + 1));[x[i], x[j]] = [x[j], x[i]]; } return x; }
 function rkey(book, word) { return `${book}::${nword(word)}`; }
 function ensureProgress(book) { if (!state.bookProgress[book]) state.bookProgress[book] = { learnedIndex: 0 }; }
 function clearTimer() { if (feedbackTimer) { clearTimeout(feedbackTimer); feedbackTimer = null; } }
+
+function getInstallDismissUntil() {
+  return localStorage.getItem(INSTALL_DISMISS_KEY) || '';
+}
+
+function isInstallDismissed() {
+  const until = getInstallDismissUntil();
+  if (!until) return false;
+  return dayDiff(today(), until) >= 0;
+}
+
+function dismissInstallEntry() {
+  localStorage.setItem(INSTALL_DISMISS_KEY, addDays(today(), INSTALL_DISMISS_DAYS));
+  updateInstallEntry();
+}
+
+function clearInstallDismiss() {
+  localStorage.removeItem(INSTALL_DISMISS_KEY);
+}
 
 function normalizeQueueWord(item) {
   if (!item || typeof item !== 'object' || !item.word || !item.definition) return null;
@@ -528,6 +573,16 @@ function updateDashboard() {
   dom.modePicture.classList.toggle('selected', state.learningMode === 'picture');
   dom.modeListening.classList.toggle('selected', state.learningMode === 'listening');
   dom.modeSpelling.classList.toggle('selected', state.learningMode === 'spelling');
+  const saved = getSavedSession();
+  if (dom.quickActions && dom.resumeSessionBtn) {
+    if (saved && Array.isArray(saved.queue) && saved.queue.length) {
+      const step = Math.max(1, Math.min((saved.index || 0) + 1, saved.queue.length));
+      dom.quickActions.classList.remove('hidden');
+      dom.resumeSessionBtn.textContent = `继续上次学习（${modeLabel(saved.mode)} ${step}/${saved.queue.length}）`;
+    } else {
+      dom.quickActions.classList.add('hidden');
+    }
+  }
   const canStart = review > 0 || pendingNew > 0;
   const t = canStart ? `开始今日学习（复习${review} + 新词${pendingNew}）` : '今日任务已完成 ✓';
   const tx = dom.startSessionBtn.querySelector('.start-btn-text'); if (tx) tx.textContent = t;
@@ -652,6 +707,21 @@ function modeLabel(mode) {
   if (mode === 'listening') return '听音选义';
   if (mode === 'spelling') return '拼写模式';
   return '闪卡模式';
+}
+
+function restoreSavedSession(saved) {
+  if (!saved || !Array.isArray(saved.queue) || !saved.queue.length) return false;
+
+  return restoreSavedSession(saved);
+}
+
+function resumeSavedSessionDirect() {
+  const saved = getSavedSession();
+  if (!saved) {
+    updateDashboard();
+    return;
+  }
+  restoreSavedSession(saved);
 }
 
 function tryResumeSession() {
@@ -1159,6 +1229,8 @@ function bindEvents() {
   if (dom.importDataBtn) dom.importDataBtn.addEventListener('click', triggerImportBackup);
   if (dom.backupFileInput) dom.backupFileInput.addEventListener('change', handleBackupFileChange);
   if (dom.installAppBtn) dom.installAppBtn.addEventListener('click', handleInstallApp);
+  if (dom.installDismissBtn) dom.installDismissBtn.addEventListener('click', dismissInstallEntry);
+  if (dom.resumeSessionBtn) dom.resumeSessionBtn.addEventListener('click', resumeSavedSessionDirect);
 
   dom.backBtn.addEventListener('click', showDashboard);
   dom.pictureBackBtn.addEventListener('click', showDashboard);
@@ -1243,10 +1315,16 @@ function updateInstallEntry() {
     return;
   }
 
+  if (isInstallDismissed() && !deferredInstallPrompt) {
+    dom.installEntry.classList.add('hidden');
+    return;
+  }
+
   dom.installEntry.classList.remove('hidden');
-  dom.installAppBtn.disabled = false;
+  dom.installAppBtn.disabled = installPromptPending;
 
   if (deferredInstallPrompt) {
+    clearInstallDismiss();
     dom.installAppBtn.textContent = '下载 App';
     dom.installTip.textContent = '点击即可安装到手机桌面。';
     return;
@@ -1274,9 +1352,13 @@ async function handleInstallApp() {
     return;
   }
 
+  if (installPromptPending) return;
+
   if (deferredInstallPrompt) {
     const promptEvent = deferredInstallPrompt;
     deferredInstallPrompt = null;
+    installPromptPending = true;
+    updateInstallEntry();
     promptEvent.prompt();
     try {
       const choice = await promptEvent.userChoice;
@@ -1287,22 +1369,24 @@ async function handleInstallApp() {
       }
     } catch (e) {
       dom.installTip.textContent = '安装弹窗被中断，请稍后重试。';
+    } finally {
+      installPromptPending = false;
     }
     updateInstallEntry();
     return;
   }
 
   if (isIOSDevice() && isSafariBrowser()) {
-    alert('请在 Safari 点击“分享”，然后选择“添加到主屏幕”。');
+    dom.installTip.textContent = '请在 Safari 中点击“分享”，再选择“添加到主屏幕”。';
     return;
   }
 
   if (isAndroidDevice() && !isAndroidInstallFriendlyBrowser()) {
-    alert('请用 Chrome 或 Edge 打开当前页面，再在菜单中选择“安装应用”。');
+    dom.installTip.textContent = '请用 Chrome 或 Edge 打开，再在菜单中选择“安装应用”。';
     return;
   }
 
-  alert('请在浏览器菜单选择“安装应用”或“添加到主屏幕”。');
+  dom.installTip.textContent = '请在浏览器菜单中选择“安装应用”或“添加到主屏幕”。';
 }
 
 function registerInstallPrompt() {
@@ -1318,6 +1402,7 @@ function registerInstallPrompt() {
   });
 
   window.addEventListener('pageshow', updateInstallEntry);
+  window.addEventListener('online', updateInstallEntry);
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) updateInstallEntry();
   });
@@ -1328,19 +1413,327 @@ function registerInstallPrompt() {
 function registerSW() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
+    navigator.serviceWorker.register('./sw.js').catch(() => { });
   });
+}
+
+// ========================================
+// 离线状态检测
+// ========================================
+function updateOfflineStatus() {
+  const isOffline = !navigator.onLine;
+  if (dom.offlineIndicator) {
+    dom.offlineIndicator.classList.toggle('hidden', !isOffline);
+  }
+  document.body.classList.toggle('is-offline', isOffline);
+}
+
+function registerOfflineDetection() {
+  window.addEventListener('online', updateOfflineStatus);
+  window.addEventListener('offline', updateOfflineStatus);
+  updateOfflineStatus();
+}
+
+// ========================================
+// 自定义计划功能
+// ========================================
+function generatePlanId() {
+  return 'plan_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+}
+
+function loadCustomPlans() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_PLANS_KEY);
+    customPlans = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(customPlans)) customPlans = [];
+  } catch (e) {
+    customPlans = [];
+  }
+}
+
+function saveCustomPlans() {
+  localStorage.setItem(CUSTOM_PLANS_KEY, JSON.stringify(customPlans));
+}
+
+function showCustomPlansView() {
+  renderCustomPlansList();
+  showOnlyView(dom.customPlansView);
+}
+
+function showOnlyView(view) {
+  [dom.dashboardView, dom.planView, dom.flashcardView, dom.pictureView,
+  dom.listeningView, dom.spellingView, dom.resultView, dom.customPlansView].forEach((v) => {
+    if (v === view) v.classList.remove('hidden');
+    else if (v) v.classList.add('hidden');
+  });
+}
+
+function renderCustomPlansList() {
+  if (!dom.customPlansList) return;
+
+  if (!customPlans.length) {
+    dom.customPlansList.innerHTML = `
+      <div class="empty-plans">
+        <div class="empty-plans-icon">📋</div>
+        <div class="empty-plans-text">还没有自定义计划<br>点击下方按钮创建你的第一个计划</div>
+      </div>`;
+    return;
+  }
+
+  dom.customPlansList.innerHTML = customPlans.map(plan => `
+    <div class="custom-plan-item" data-plan-id="${plan.id}">
+      <div class="plan-item-header">
+        <div class="plan-item-name">${escapeHtml(plan.name)}</div>
+        <div class="plan-item-badge">
+          <span class="plan-badge plan-badge-book">${getBookName(plan.bookId)}</span>
+          <span class="plan-badge plan-badge-mode">${modeLabel(plan.mode)}</span>
+        </div>
+      </div>
+      <div class="plan-item-meta">
+        <span>每日 ${plan.dailyGoal} 词</span>
+        ${plan.wordRange ? `<span>范围 ${plan.wordRange.start}-${plan.wordRange.end}</span>` : '<span>全部词汇</span>'}
+      </div>
+      <div class="plan-item-actions">
+        <button class="plan-action-btn plan-action-start" onclick="executeCustomPlan('${plan.id}')">开始学习</button>
+        <button class="plan-action-btn plan-action-delete" onclick="deleteCustomPlan('${plan.id}')">删除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function openCustomPlanModal(planId = null) {
+  editingPlanId = planId;
+  const isEdit = !!planId;
+  const plan = isEdit ? customPlans.find(p => p.id === planId) : null;
+
+  if (dom.customPlanModal) {
+    const title = dom.customPlanModal.querySelector('h2');
+    if (title) title.textContent = isEdit ? '📋 编辑学习计划' : '📋 创建学习计划';
+  }
+
+  if (dom.planNameInput) dom.planNameInput.value = isEdit ? plan.name : '';
+  if (dom.planBookSelect) dom.planBookSelect.value = isEdit ? plan.bookId : 'cet4';
+  if (dom.planModeSelect) dom.planModeSelect.value = isEdit ? plan.mode : 'flashcard';
+  if (dom.planGoalInput) {
+    dom.planGoalInput.value = isEdit ? plan.dailyGoal : 20;
+    if (dom.planGoalValue) dom.planGoalValue.textContent = isEdit ? plan.dailyGoal : '20';
+  }
+  if (dom.planRangeStart) dom.planRangeStart.value = isEdit && plan.wordRange ? plan.wordRange.start : '';
+  if (dom.planRangeEnd) dom.planRangeEnd.value = isEdit && plan.wordRange ? plan.wordRange.end : '';
+
+  updatePlanRangeHint();
+
+  if (dom.customPlanModal) {
+    if (typeof dom.customPlanModal.showModal === 'function') dom.customPlanModal.showModal();
+    else dom.customPlanModal.setAttribute('open', 'open');
+  }
+}
+
+function closeCustomPlanModal() {
+  if (dom.customPlanModal) {
+    if (typeof dom.customPlanModal.close === 'function' && dom.customPlanModal.open) dom.customPlanModal.close();
+    else dom.customPlanModal.removeAttribute('open');
+  }
+  editingPlanId = null;
+}
+
+function updatePlanRangeHint() {
+  if (!dom.planRangeHint || !dom.planBookSelect) return;
+  const bookId = dom.planBookSelect.value;
+  const lib = getLibraryFor(bookId);
+  dom.planRangeHint.textContent = `可选，该词书共 ${lib.length} 词`;
+}
+
+function saveCustomPlanFromModal() {
+  const name = (dom.planNameInput?.value || '').trim();
+  if (!name) {
+    alert('请输入计划名称');
+    return;
+  }
+
+  const bookId = dom.planBookSelect?.value || 'cet4';
+  const mode = dom.planModeSelect?.value || 'flashcard';
+  const dailyGoal = parseInt(dom.planGoalInput?.value) || 20;
+  const rangeStart = parseInt(dom.planRangeStart?.value) || 0;
+  const rangeEnd = parseInt(dom.planRangeEnd?.value) || 0;
+
+  const lib = getLibraryFor(bookId);
+  let wordRange = null;
+  if (rangeStart > 0 && rangeEnd > 0 && rangeStart <= rangeEnd) {
+    wordRange = {
+      start: Math.max(1, rangeStart),
+      end: Math.min(lib.length, rangeEnd)
+    };
+  }
+
+  const now = new Date().toISOString();
+
+  if (editingPlanId) {
+    const idx = customPlans.findIndex(p => p.id === editingPlanId);
+    if (idx >= 0) {
+      customPlans[idx] = { ...customPlans[idx], name, bookId, mode, dailyGoal, wordRange, updatedAt: now };
+    }
+  } else {
+    customPlans.push({
+      id: generatePlanId(),
+      name,
+      bookId,
+      mode,
+      dailyGoal,
+      wordRange,
+      createdAt: now,
+      lastUsed: null
+    });
+  }
+
+  saveCustomPlans();
+  closeCustomPlanModal();
+  renderCustomPlansList();
+}
+
+function deleteCustomPlan(planId) {
+  const plan = customPlans.find(p => p.id === planId);
+  if (!plan) return;
+  const ok = window.confirm(`确定要删除计划「${plan.name}」吗？`);
+  if (!ok) return;
+  customPlans = customPlans.filter(p => p.id !== planId);
+  saveCustomPlans();
+  renderCustomPlansList();
+}
+
+function executeCustomPlan(planId) {
+  const plan = customPlans.find(p => p.id === planId);
+  if (!plan) return;
+
+  // Update last used
+  plan.lastUsed = new Date().toISOString();
+  saveCustomPlans();
+
+  // Apply plan settings
+  state.currentBook = plan.bookId;
+  state.learningMode = plan.mode;
+  state.dailyGoal = plan.dailyGoal;
+  ensureProgress(state.currentBook);
+  saveState();
+
+  // Generate custom queue
+  const queue = generateCustomPlanQueue(plan);
+  if (!queue.length) {
+    alert('没有符合条件的单词可以学习');
+    return;
+  }
+
+  pendingPlan = {
+    mode: plan.mode,
+    bookId: plan.bookId,
+    queue,
+    reviewCount: queue.filter(w => w && w.isReview).length,
+    newCount: queue.filter(w => w && !w.isReview).length
+  };
+
+  dom.planSubtitle.textContent = `${today()} · ${modeLabel(plan.mode)}`;
+  dom.planBook.textContent = getBookName(plan.bookId);
+  dom.planMode.textContent = modeLabel(plan.mode);
+  dom.planReview.textContent = String(pendingPlan.reviewCount);
+  dom.planNew.textContent = String(pendingPlan.newCount);
+  dom.planTotal.textContent = String(queue.length);
+  dom.planStartBtn.disabled = queue.length === 0;
+
+  showOnlyView(dom.planView);
+}
+
+function generateCustomPlanQueue(plan) {
+  const book = plan.bookId;
+  ensureProgress(book);
+  const lib = getLibraryFor(book);
+  if (!lib.length) return [];
+
+  // Apply word range filter
+  let filteredLib = lib;
+  if (plan.wordRange && plan.wordRange.start && plan.wordRange.end) {
+    const start = Math.max(0, plan.wordRange.start - 1);
+    const end = Math.min(lib.length, plan.wordRange.end);
+    filteredLib = lib.slice(start, end).map((w, i) => ({ ...w, originalIndex: start + i }));
+  } else {
+    filteredLib = lib.map((w, i) => ({ ...w, originalIndex: i }));
+  }
+
+  const byWord = new Map();
+  filteredLib.forEach(w => byWord.set(nword(w.word), w));
+
+  // Find review words within range
+  const review = [];
+  const t = today();
+  Object.keys(state.wordRecords).forEach(k => {
+    const r = state.wordRecords[k];
+    if (!r || r.bookId !== book || !r.nextReviewDate || r.nextReviewDate > t) return;
+    const x = byWord.get(nword(r.word));
+    if (!x) return;
+    review.push({ ...x, isReview: true, currentLevel: r.level || 0 });
+  });
+
+  const reviewSet = new Set(review.map(w => nword(w.word)));
+  const need = Math.max(0, plan.dailyGoal);
+  const news = [];
+
+  for (let i = 0; i < filteredLib.length && news.length < need; i++) {
+    const w = filteredLib[i];
+    if (state.wordRecords[rkey(book, w.word)] || reviewSet.has(nword(w.word))) continue;
+    news.push({ ...w, isReview: false, currentLevel: 0 });
+  }
+
+  return shuffle([...review, ...news]);
+}
+
+function bindCustomPlanEvents() {
+  if (dom.customPlanBtn) {
+    dom.customPlanBtn.addEventListener('click', showCustomPlansView);
+  }
+  if (dom.customPlansBackBtn) {
+    dom.customPlansBackBtn.addEventListener('click', showDashboard);
+  }
+  if (dom.createPlanBtn) {
+    dom.createPlanBtn.addEventListener('click', () => openCustomPlanModal());
+  }
+  if (dom.cancelPlanModal) {
+    dom.cancelPlanModal.addEventListener('click', closeCustomPlanModal);
+  }
+  if (dom.savePlanBtn) {
+    dom.savePlanBtn.addEventListener('click', saveCustomPlanFromModal);
+  }
+  if (dom.planGoalInput && dom.planGoalValue) {
+    dom.planGoalInput.addEventListener('input', (e) => {
+      dom.planGoalValue.textContent = e.target.value;
+    });
+  }
+  if (dom.planBookSelect) {
+    dom.planBookSelect.addEventListener('change', updatePlanRangeHint);
+  }
+  if (dom.customPlanModal) {
+    dom.customPlanModal.addEventListener('click', (e) => {
+      if (e.target === dom.customPlanModal) closeCustomPlanModal();
+    });
+  }
 }
 
 function init() {
   loadState();
+  loadCustomPlans();
   ensureProgress(state.currentBook);
   saveState();
   bindEvents();
+  bindCustomPlanEvents();
   showDashboard();
   if ('speechSynthesis' in window) window.speechSynthesis.getVoices();
   registerInstallPrompt();
   registerSW();
+  registerOfflineDetection();
 }
 
 document.addEventListener('DOMContentLoaded', init);
