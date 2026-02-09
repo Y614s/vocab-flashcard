@@ -172,6 +172,7 @@
                     <button class="data-btn quick-action-btn" id="quickWrongBtn" type="button">只练错题</button>
                     <button class="data-btn quick-action-btn" id="quickSpellingBtn" type="button">拼写速练</button>
                     <button class="data-btn quick-action-btn" id="quickWrongSpellingBtn" type="button">错题拼写</button>
+                    <button class="data-btn quick-action-btn" id="quickWrongBookBtn" type="button">错题本</button>
                 </div>
             </section>
             <button class="start-btn" id="startSessionBtn" type="button">
@@ -606,6 +607,28 @@
         </div>
     </dialog>
 
+    <div class="view view-wrong hidden" id="wrongView">
+        <div class="container">
+            <button class="back-btn" id="wrongBackBtn" type="button" aria-label="返回首页">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+            </button>
+
+            <section class="wrong-header">
+                <h2 class="result-title">错题本</h2>
+                <p class="result-subtitle" id="wrongSubtitle">查看并管理当前词书错题</p>
+            </section>
+
+            <section class="wrong-list" id="wrongList"></section>
+            <section class="wrong-empty hidden" id="wrongEmpty">当前还没有错题，继续保持。</section>
+
+            <div class="wrong-actions">
+                <button class="data-btn" id="wrongPracticeBtn" type="button">练习这些错题</button>
+                <button class="data-btn" id="wrongClearBtn" type="button">清空错题记录</button>
+            </div>
+        </div>
+    </div>
     <script src="vocab_library.js"></script>
     <div class="session-toast hidden" id="sessionToast">已自动保存学习进度</div>
     <script src="script.js"></script>

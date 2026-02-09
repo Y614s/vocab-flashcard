@@ -96,6 +96,7 @@ const dom = {
   quickWrongBtn: document.getElementById('quickWrongBtn'),
   quickSpellingBtn: document.getElementById('quickSpellingBtn'),
   quickWrongSpellingBtn: document.getElementById('quickWrongSpellingBtn'),
+  quickWrongBookBtn: document.getElementById('quickWrongBookBtn'),
   startSessionBtn: document.getElementById('startSessionBtn'),
   planView: document.getElementById('planView'),
   planBackBtn: document.getElementById('planBackBtn'),
@@ -179,7 +180,14 @@ const dom = {
   resultReview: document.getElementById('resultReview'),
   resultBackBtn: document.getElementById('resultBackBtn'),
   resultNextBtn: document.getElementById('resultNextBtn'),
-  sessionToast: document.getElementById('sessionToast')
+  sessionToast: document.getElementById('sessionToast'),
+  wrongView: document.getElementById('wrongView'),
+  wrongBackBtn: document.getElementById('wrongBackBtn'),
+  wrongSubtitle: document.getElementById('wrongSubtitle'),
+  wrongList: document.getElementById('wrongList'),
+  wrongEmpty: document.getElementById('wrongEmpty'),
+  wrongPracticeBtn: document.getElementById('wrongPracticeBtn'),
+  wrongClearBtn: document.getElementById('wrongClearBtn')
 };
 
 function nword(v) { return String(v || '').trim().toLowerCase(); }
@@ -239,6 +247,15 @@ function intervalToLevel(days) {
   if (d >= 3) return 2;
   if (d >= 1) return 1;
   return 0;
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function hydrateReviewFields() {
@@ -575,6 +592,40 @@ function generateWrongQueue(limit = Math.max(20, state.dailyGoal)) {
   });
 }
 
+function getWrongEntries(book = state.currentBook, limit = 200) {
+  const lib = getLibraryFor(book);
+  const byWord = new Map();
+  lib.forEach((w) => byWord.set(nword(w.word), w));
+
+  const list = [];
+  Object.keys(state.wordRecords).forEach((k) => {
+    const r = state.wordRecords[k];
+    if (!r || r.bookId !== book || !r.word) return;
+
+    const incorrect = Math.max(0, Number(r.incorrectCount) || 0);
+    const fuzzy = Math.max(0, Number(r.fuzzyCount) || 0);
+    const lapse = Math.max(0, Number(r.lapseCount) || 0);
+    if (incorrect <= 0 && fuzzy < 2) return;
+
+    const info = byWord.get(nword(r.word));
+    const score = incorrect * 2 + fuzzy + lapse + (r.lastResult === 'unknown' ? 2 : r.lastResult === 'fuzzy' ? 1 : 0);
+    list.push({
+      key: k,
+      bookId: book,
+      word: r.word,
+      definition: info ? info.definition : '',
+      incorrect,
+      fuzzy,
+      lapse,
+      nextReviewDate: r.nextReviewDate || '',
+      score
+    });
+  });
+
+  list.sort((a, b) => b.score - a.score);
+  return list.slice(0, Math.max(1, Number(limit) || 200));
+}
+
 function generateSessionQueue() {
   const book = state.currentBook; ensureProgress(book);
   const lib = getLibraryFor(book); if (!lib.length) return [];
@@ -739,7 +790,7 @@ function hideFeedback() {
 }
 
 function showOnly(view) {
-  [dom.dashboardView, dom.planView, dom.flashcardView, dom.pictureView, dom.listeningView, dom.spellingView, dom.resultView].forEach((v) => {
+  [dom.dashboardView, dom.planView, dom.flashcardView, dom.pictureView, dom.listeningView, dom.spellingView, dom.resultView, dom.wrongView].forEach((v) => {
     if (v === view) v.classList.remove('hidden'); else v.classList.add('hidden');
   });
 }
@@ -789,6 +840,7 @@ function updateDashboard() {
     dom.quickWrongSpellingBtn.textContent = `错题拼写（${wrong}）`;
     dom.quickWrongSpellingBtn.disabled = wrong === 0;
   }
+  if (dom.quickWrongBookBtn) dom.quickWrongBookBtn.textContent = `错题本（${wrong}）`;
   const canStart = review > 0 || pendingNew > 0;
   const t = canStart ? `开始今日学习（复习${review} + 新词${pendingNew}）` : '今日任务已完成 ✓';
   const tx = dom.startSessionBtn.querySelector('.start-btn-text'); if (tx) tx.textContent = t;
@@ -940,9 +992,12 @@ function openPlanWithQueue(queue, mode, modeText) {
   showOnly(dom.planView);
 }
 
-function openQuickPlan(type) {
-  const resumed = tryResumeSession();
-  if (resumed) return;
+function openQuickPlan(type, options = {}) {
+  const allowResume = options.allowResume !== false;
+  if (allowResume) {
+    const resumed = tryResumeSession();
+    if (resumed) return;
+  }
 
   let mode = state.learningMode;
   let modeText = modeLabel(mode);
@@ -989,6 +1044,81 @@ function openMainPlanPage() {
     return;
   }
   openPlanWithQueue(queue, state.learningMode, modeLabel(state.learningMode));
+}
+
+function renderWrongBook() {
+  if (!dom.wrongList || !dom.wrongEmpty || !dom.wrongSubtitle) return;
+  const entries = getWrongEntries(state.currentBook);
+  const total = entries.length;
+  dom.wrongSubtitle.textContent = `${getBookName(state.currentBook)} · 错题 ${total} 个`;
+
+  if (!total) {
+    dom.wrongList.innerHTML = '';
+    dom.wrongEmpty.classList.remove('hidden');
+    if (dom.wrongPracticeBtn) dom.wrongPracticeBtn.disabled = true;
+    if (dom.wrongClearBtn) dom.wrongClearBtn.disabled = true;
+    return;
+  }
+
+  if (dom.wrongPracticeBtn) dom.wrongPracticeBtn.disabled = false;
+  if (dom.wrongClearBtn) dom.wrongClearBtn.disabled = false;
+  dom.wrongEmpty.classList.add('hidden');
+
+  const html = entries.map((item) => (
+    `<article class="wrong-item">`
+      + `<div class="wrong-item-head">`
+      + `<div class="wrong-main">`
+      + `<div class="wrong-word">${escapeHtml(item.word)}</div>`
+      + `<div class="wrong-meaning">${escapeHtml(item.definition || '（释义不可用）')}</div>`
+      + `<div class="wrong-meta">错 ${item.incorrect} · 模糊 ${item.fuzzy} · 计划复习 ${escapeHtml(item.nextReviewDate || '今天')}</div>`
+      + `</div>`
+      + `<button class="wrong-remove-btn" type="button" data-wrong-remove="${escapeHtml(item.key)}">移除</button>`
+      + `</div>`
+    + `</article>`
+  )).join('');
+
+  dom.wrongList.innerHTML = html;
+}
+
+function showWrongBookPage() {
+  clearTimer();
+  hideFeedback();
+  renderWrongBook();
+  showOnly(dom.wrongView);
+}
+
+function removeWrongRecordByKey(recordKey) {
+  const key = String(recordKey || '');
+  const r = state.wordRecords[key];
+  if (!r) return;
+  r.incorrectCount = 0;
+  r.fuzzyCount = 0;
+  r.lapseCount = 0;
+  r.lastResult = '';
+  saveState();
+  renderWrongBook();
+  updateDashboard();
+}
+
+function clearWrongRecordsForCurrentBook() {
+  const entries = getWrongEntries(state.currentBook, 2000);
+  if (!entries.length) {
+    renderWrongBook();
+    return;
+  }
+  const ok = window.confirm(`确认清空当前词书的 ${entries.length} 个错题记录吗？`);
+  if (!ok) return;
+  entries.forEach((item) => {
+    const r = state.wordRecords[item.key];
+    if (!r) return;
+    r.incorrectCount = 0;
+    r.fuzzyCount = 0;
+    r.lapseCount = 0;
+    r.lastResult = '';
+  });
+  saveState();
+  renderWrongBook();
+  updateDashboard();
 }
 
 function modeLabel(mode) {
@@ -1457,6 +1587,12 @@ function onKeydown(e) {
     return;
   }
 
+  if (dom.wrongView && !dom.wrongView.classList.contains('hidden')) {
+    if (e.key === 'Escape') showDashboard();
+    else if (e.key === 'Enter') { e.preventDefault(); openQuickPlan('wrong', { allowResume: false }); }
+    return;
+  }
+
   if (!dom.flashcardView.classList.contains('hidden')) {
     if (e.key === '1') answerFlashcard('unknown');
     else if (e.key === '2') answerFlashcard('fuzzy');
@@ -1525,11 +1661,22 @@ function bindEvents() {
   if (dom.quickWrongBtn) dom.quickWrongBtn.addEventListener('click', () => openQuickPlan('wrong'));
   if (dom.quickSpellingBtn) dom.quickSpellingBtn.addEventListener('click', () => openQuickPlan('spelling'));
   if (dom.quickWrongSpellingBtn) dom.quickWrongSpellingBtn.addEventListener('click', () => openQuickPlan('wrongSpelling'));
+  if (dom.quickWrongBookBtn) dom.quickWrongBookBtn.addEventListener('click', showWrongBookPage);
 
   dom.backBtn.addEventListener('click', showDashboard);
   dom.pictureBackBtn.addEventListener('click', showDashboard);
   dom.listeningBackBtn.addEventListener('click', showDashboard);
   dom.spellingBackBtn.addEventListener('click', showDashboard);
+  if (dom.wrongBackBtn) dom.wrongBackBtn.addEventListener('click', showDashboard);
+  if (dom.wrongPracticeBtn) dom.wrongPracticeBtn.addEventListener('click', () => openQuickPlan('wrong', { allowResume: false }));
+  if (dom.wrongClearBtn) dom.wrongClearBtn.addEventListener('click', clearWrongRecordsForCurrentBook);
+  if (dom.wrongList) {
+    dom.wrongList.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-wrong-remove]');
+      if (!btn) return;
+      removeWrongRecordByKey(btn.getAttribute('data-wrong-remove'));
+    });
+  }
 
   dom.wordCard.addEventListener('click', (e) => {
     if (e.target.closest('.play-btn') || e.target.closest('.status-btn')) return;
