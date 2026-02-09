@@ -3,7 +3,7 @@ const LEGACY_STORAGE_KEY = 'vocab_flashcard_data';
 const ACTIVE_SESSION_KEY = 'vocab_flashcard_active_session_v1';
 const CUSTOM_PLANS_KEY = 'vocab_custom_plans_v1';
 const BACKUP_VERSION = 1;
-const STATE_SCHEMA_VERSION = 2;
+const STATE_SCHEMA_VERSION = 3;
 const WRONG_FILTERS_KEY = 'vocab_wrong_filters_v1';
 const SW_UPDATE_DISMISS_KEY = 'vocab_sw_update_dismiss_v1';
 const WRONG_CLEAN_DAYS = 30;
@@ -34,7 +34,10 @@ const DEFAULT_STATE = {
   streak: 0,
   lastStudyDate: null,
   todayNewCount: 0,
-  todayReviewCount: 0
+  todayReviewCount: 0,
+  reminderEnabled: false,
+  reminderTime: '20:00',
+  studyLogs: []
 };
 
 let state = JSON.parse(JSON.stringify(DEFAULT_STATE));
@@ -64,6 +67,8 @@ let wrongBookPage = 1;
 let wrongSearchDebounceTimer = null;
 let sessionWordStats = {};
 let swRegistrationRef = null;
+let reminderTimer = null;
+let syncModalMode = '';
 let sessionResult = {
   startAt: 0,
   endAt: 0,
@@ -103,9 +108,14 @@ const dom = {
   bookKaoyan: document.getElementById('bookKaoyan'),
   dailyGoalSlider: document.getElementById('dailyGoalSlider'),
   dailyGoalValue: document.getElementById('dailyGoalValue'),
+  reminderEnabledChk: document.getElementById('reminderEnabledChk'),
+  reminderTimeInput: document.getElementById('reminderTimeInput'),
   statLearned: document.getElementById('statLearned'),
   statStreak: document.getElementById('statStreak'),
   statTotal: document.getElementById('statTotal'),
+  insightChart7d: document.getElementById('insightChart7d'),
+  insightAccuracy30d: document.getElementById('insightAccuracy30d'),
+  insightModeGrid: document.getElementById('insightModeGrid'),
   quickActions: document.getElementById('quickActions'),
   resumeSessionBtn: document.getElementById('resumeSessionBtn'),
   quickReviewBtn: document.getElementById('quickReviewBtn'),
@@ -126,6 +136,8 @@ const dom = {
   planTotal: document.getElementById('planTotal'),
   exportDataBtn: document.getElementById('exportDataBtn'),
   importDataBtn: document.getElementById('importDataBtn'),
+  syncCodeExportBtn: document.getElementById('syncCodeExportBtn'),
+  syncCodeImportBtn: document.getElementById('syncCodeImportBtn'),
   backupFileInput: document.getElementById('backupFileInput'),
   installEntry: document.getElementById('installEntry'),
   installTip: document.getElementById('installTip'),
@@ -217,7 +229,14 @@ const dom = {
   updateBanner: document.getElementById('updateBanner'),
   updateBannerText: document.getElementById('updateBannerText'),
   updateNowBtn: document.getElementById('updateNowBtn'),
-  updateLaterBtn: document.getElementById('updateLaterBtn')
+  updateLaterBtn: document.getElementById('updateLaterBtn'),
+  syncModal: document.getElementById('syncModal'),
+  syncModalTitle: document.getElementById('syncModalTitle'),
+  syncModalHint: document.getElementById('syncModalHint'),
+  syncCodeText: document.getElementById('syncCodeText'),
+  syncModalCancelBtn: document.getElementById('syncModalCancelBtn'),
+  syncModalConfirmBtn: document.getElementById('syncModalConfirmBtn'),
+  srLive: document.getElementById('srLive')
 };
 
 function nword(v) { return String(v || '').trim().toLowerCase(); }
@@ -263,14 +282,213 @@ function showSessionToast(message) {
   }, 1600);
 }
 
+function announce(message) {
+  if (!dom.srLive) return;
+  dom.srLive.textContent = '';
+  setTimeout(() => {
+    dom.srLive.textContent = String(message || '').trim();
+  }, 10);
+}
+
+function modeLabelSafe(mode) {
+  if (mode === 'picture') return '图片选义';
+  if (mode === 'listening') return '听音选义';
+  if (mode === 'spelling') return '拼写';
+  return '闪卡';
+}
+
+function studyLogSummary(days) {
+  const n = Math.max(1, Number(days) || 7);
+  const end = parseDay(today()) || new Date();
+  const start = new Date(end);
+  start.setDate(end.getDate() - (n - 1));
+  const from = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+  return (state.studyLogs || []).filter((x) => x && x.date && x.date >= from && x.date <= today());
+}
+
+function renderInsights() {
+  if (!dom.insightChart7d || !dom.insightAccuracy30d || !dom.insightModeGrid) return;
+  const list7 = studyLogSummary(7);
+  const byDay = new Map();
+  list7.forEach((x) => {
+    byDay.set(x.date, (byDay.get(x.date) || 0) + Math.max(0, Number(x.total) || 0));
+  });
+
+  const days = [];
+  for (let i = 6; i >= 0; i -= 1) {
+    const d = addDays(today(), -i);
+    days.push({ day: d, value: byDay.get(d) || 0 });
+  }
+  const maxVal = Math.max(1, ...days.map((x) => x.value));
+  dom.insightChart7d.innerHTML = days.map((x) => {
+    const h = Math.max(8, Math.round((x.value / maxVal) * 52));
+    return `<div class="insight-bar" style="height:${h}px" title="${escapeHtml(x.day)}: ${x.value}"></div>`;
+  }).join('');
+
+  const list30 = studyLogSummary(30);
+  let total30 = 0;
+  let known30 = 0;
+  list30.forEach((x) => {
+    total30 += Math.max(0, Number(x.total) || 0);
+    known30 += Math.max(0, Number(x.known) || 0);
+  });
+  const acc = total30 > 0 ? Math.round((known30 / total30) * 100) : 0;
+  dom.insightAccuracy30d.textContent = `${acc}%`;
+
+  const modeStats = {};
+  list30.forEach((x) => {
+    const m = String(x.mode || 'flashcard');
+    if (!modeStats[m]) modeStats[m] = { total: 0, known: 0 };
+    modeStats[m].total += Math.max(0, Number(x.total) || 0);
+    modeStats[m].known += Math.max(0, Number(x.known) || 0);
+  });
+  const modes = ['flashcard', 'picture', 'listening', 'spelling'];
+  dom.insightModeGrid.innerHTML = modes.map((m) => {
+    const row = modeStats[m] || { total: 0, known: 0 };
+    const v = row.total > 0 ? `${Math.round((row.known / row.total) * 100)}%` : '--';
+    return (
+      `<div class="insight-mode-item">`
+        + `<div class="insight-mode-name">${escapeHtml(modeLabelSafe(m))}</div>`
+        + `<div class="insight-mode-value">${escapeHtml(v)}</div>`
+      + `</div>`
+    );
+  }).join('');
+}
+
+function recordStudyLog() {
+  const total = Math.max(0, Number(sessionStudied) || 0);
+  if (!total) return;
+  const duration = sessionResult.endAt > sessionResult.startAt ? sessionResult.endAt - sessionResult.startAt : 0;
+  const item = {
+    date: today(),
+    mode: state.learningMode,
+    total,
+    known: Math.max(0, Number(sessionResult.known) || 0),
+    fuzzy: Math.max(0, Number(sessionResult.fuzzy) || 0),
+    unknown: Math.max(0, Number(sessionResult.unknown) || 0),
+    duration
+  };
+  if (!Array.isArray(state.studyLogs)) state.studyLogs = [];
+  state.studyLogs.push(item);
+  state.studyLogs = state.studyLogs.slice(-120);
+}
+
+function closeSyncModal() {
+  if (!dom.syncModal) return;
+  if (typeof dom.syncModal.close === 'function' && dom.syncModal.open) dom.syncModal.close();
+}
+
+function openSyncModal(mode) {
+  if (!dom.syncModal || !dom.syncCodeText || !dom.syncModalTitle || !dom.syncModalHint) return;
+  syncModalMode = mode;
+  if (mode === 'export') {
+    dom.syncModalTitle.textContent = '生成同步码';
+    dom.syncModalHint.textContent = '复制同步码到另一台设备，使用“导入同步码”恢复数据。';
+    dom.syncCodeText.value = btoa(unescape(encodeURIComponent(JSON.stringify(backupPayload()))));
+    dom.syncCodeText.readOnly = true;
+  } else {
+    dom.syncModalTitle.textContent = '导入同步码';
+    dom.syncModalHint.textContent = '粘贴同步码后点击确定，将覆盖当前本地数据。';
+    dom.syncCodeText.value = '';
+    dom.syncCodeText.readOnly = false;
+  }
+  if (typeof dom.syncModal.showModal === 'function') dom.syncModal.showModal();
+  else dom.syncModal.setAttribute('open', '');
+  dom.syncCodeText.focus();
+  dom.syncCodeText.select();
+}
+
+function confirmSyncModal() {
+  if (!dom.syncCodeText) return;
+  const code = String(dom.syncCodeText.value || '').trim();
+  if (!code) {
+    alert('同步码不能为空。');
+    return;
+  }
+  if (syncModalMode === 'export') {
+    try {
+      navigator.clipboard && navigator.clipboard.writeText(code).catch(() => {});
+      showSessionToast('同步码已生成，可复制到其他设备');
+      announce('同步码已生成');
+    } catch (e) {}
+    closeSyncModal();
+    return;
+  }
+  try {
+    const jsonText = decodeURIComponent(escape(atob(code)));
+    const parsed = JSON.parse(jsonText);
+    const ok = window.confirm('导入同步码将覆盖当前学习数据，是否继续？');
+    if (!ok) return;
+    applyImportedBackup(parsed);
+    closeSyncModal();
+    showSessionToast('同步码导入成功');
+    announce('同步码导入成功');
+  } catch (e) {
+    alert('同步码无效，请检查后重试。');
+  }
+}
+
+function parseReminderMinutes(timeText) {
+  const m = /^(\d{2}):(\d{2})$/.exec(String(timeText || ''));
+  if (!m) return 20 * 60;
+  const hh = Math.max(0, Math.min(23, Number(m[1]) || 0));
+  const mm = Math.max(0, Math.min(59, Number(m[2]) || 0));
+  return hh * 60 + mm;
+}
+
+function askNotificationPermissionIfNeeded() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    Notification.requestPermission().catch(() => {});
+  }
+}
+
+function fireReminderNotification() {
+  if (!state.reminderEnabled) return;
+  const title = '背单词提醒';
+  const body = '到时间学习了，今天也保持进步。';
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification(title, { body, tag: 'vocab-daily-reminder', renotify: true });
+    } catch (e) {}
+  } else {
+    showSessionToast(body);
+  }
+  announce('学习提醒已触发');
+}
+
+function scheduleReminder() {
+  if (reminderTimer) {
+    clearTimeout(reminderTimer);
+    reminderTimer = null;
+  }
+  if (!state.reminderEnabled) return;
+
+  const now = new Date();
+  const mins = parseReminderMinutes(state.reminderTime);
+  const target = new Date(now);
+  target.setHours(Math.floor(mins / 60), mins % 60, 0, 0);
+  if (target <= now) target.setDate(target.getDate() + 1);
+  const delay = Math.max(15000, target.getTime() - now.getTime());
+  reminderTimer = setTimeout(() => {
+    fireReminderNotification();
+    scheduleReminder();
+  }, delay);
+}
+
 function normalizeStaticLabels() {
   document.title = '背单词';
   if (dom.exportDataBtn) dom.exportDataBtn.textContent = '导出备份';
   if (dom.importDataBtn) dom.importDataBtn.textContent = '导入备份';
+  if (dom.syncCodeExportBtn) dom.syncCodeExportBtn.textContent = '生成同步码';
+  if (dom.syncCodeImportBtn) dom.syncCodeImportBtn.textContent = '导入同步码';
   if (dom.resultBackBtn) dom.resultBackBtn.textContent = '返回首页';
   if (dom.resultNextBtn) dom.resultNextBtn.textContent = '继续学习';
   if (dom.wrongPracticeBtn) dom.wrongPracticeBtn.textContent = '练习这些错题';
   if (dom.wrongClearBtn) dom.wrongClearBtn.textContent = '清空错题记录';
+  if (dom.wrongClearHardBtn) dom.wrongClearHardBtn.textContent = '清理高频错题';
+  if (dom.wrongClearOldBtn) dom.wrongClearOldBtn.textContent = `清理${WRONG_CLEAN_DAYS}天前`;
+  if (dom.wrongExportBtn) dom.wrongExportBtn.textContent = '导出错题';
 }
 
 function clampNumber(value, min, max, fallback) {
@@ -447,6 +665,7 @@ function applyImportedBackup(data) {
   }
 
   state = nextState;
+  scheduleReminder();
   hydrateReviewFields();
   sessionQueue = [];
   sessionIndex = 0;
@@ -526,6 +745,15 @@ function applyStateMigrations(raw) {
     version = 2;
   }
 
+  if (version < 3) {
+    src.reminderEnabled = Boolean(src.reminderEnabled);
+    src.reminderTime = typeof src.reminderTime === 'string' && /^\d{2}:\d{2}$/.test(src.reminderTime)
+      ? src.reminderTime
+      : '20:00';
+    src.studyLogs = Array.isArray(src.studyLogs) ? src.studyLogs : [];
+    version = 3;
+  }
+
   src.schemaVersion = Math.max(STATE_SCHEMA_VERSION, version);
   return src;
 }
@@ -559,6 +787,24 @@ function normalizeState(raw) {
     });
     s.wordRecords = out;
   }
+  s.reminderEnabled = Boolean(raw && raw.reminderEnabled);
+  s.reminderTime = raw && typeof raw.reminderTime === 'string' && /^\d{2}:\d{2}$/.test(raw.reminderTime)
+    ? raw.reminderTime
+    : '20:00';
+  s.studyLogs = Array.isArray(raw && raw.studyLogs)
+    ? raw.studyLogs
+      .map((x) => ({
+        date: String((x && x.date) || ''),
+        mode: String((x && x.mode) || ''),
+        total: Math.max(0, Number(x && x.total) || 0),
+        known: Math.max(0, Number(x && x.known) || 0),
+        fuzzy: Math.max(0, Number(x && x.fuzzy) || 0),
+        unknown: Math.max(0, Number(x && x.unknown) || 0),
+        duration: Math.max(0, Number(x && x.duration) || 0)
+      }))
+      .filter((x) => x.date)
+      .slice(-120)
+    : [];
   return s;
 }
 
@@ -1026,6 +1272,11 @@ function showOnly(view) {
   [dom.dashboardView, dom.planView, dom.flashcardView, dom.pictureView, dom.listeningView, dom.spellingView, dom.resultView, dom.wrongView].forEach((v) => {
     if (v === view) v.classList.remove('hidden'); else v.classList.add('hidden');
   });
+  setTimeout(() => {
+    if (!view) return;
+    const target = view.querySelector('.back-btn, .start-btn, button, input, textarea, select');
+    if (target && typeof target.focus === 'function') target.focus();
+  }, 0);
 }
 
 function updateProgress(fill, text) {
@@ -1045,6 +1296,8 @@ function updateDashboard() {
   dom.statTotal.textContent = String(state.totalLearned);
   dom.dailyGoalSlider.value = String(state.dailyGoal);
   dom.dailyGoalValue.textContent = String(state.dailyGoal);
+  if (dom.reminderEnabledChk) dom.reminderEnabledChk.checked = Boolean(state.reminderEnabled);
+  if (dom.reminderTimeInput) dom.reminderTimeInput.value = String(state.reminderTime || '20:00');
   dom.bookCet4.classList.toggle('selected', state.currentBook === 'cet4');
   dom.bookCet6.classList.toggle('selected', state.currentBook === 'cet6');
   dom.bookKaoyan.classList.toggle('selected', state.currentBook === 'kaoyan');
@@ -1074,6 +1327,7 @@ function updateDashboard() {
     dom.quickWrongSpellingBtn.disabled = wrong === 0;
   }
   if (dom.quickWrongBookBtn) dom.quickWrongBookBtn.textContent = `错题本（${wrong}）`;
+  renderInsights();
   const canStart = review > 0 || pendingNew > 0;
   const t = canStart ? `开始今日学习（复习${review} + 新词${pendingNew}）` : '今日任务已完成 ✓';
   const tx = dom.startSessionBtn.querySelector('.start-btn-text'); if (tx) tx.textContent = t;
@@ -1115,6 +1369,7 @@ function showDashboard() {
 function completeSession() {
   sessionResult.endAt = Date.now();
   const finalCount = sessionStudied;
+  recordStudyLog();
   clearActiveSession();
   sessionQueue = [];
   sessionIndex = 0;
@@ -1343,6 +1598,9 @@ function renderWrongBook() {
     dom.wrongEmpty.classList.remove('hidden');
     if (dom.wrongPracticeBtn) dom.wrongPracticeBtn.disabled = true;
     if (dom.wrongClearBtn) dom.wrongClearBtn.disabled = true;
+    if (dom.wrongClearHardBtn) dom.wrongClearHardBtn.disabled = true;
+    if (dom.wrongClearOldBtn) dom.wrongClearOldBtn.disabled = true;
+    if (dom.wrongExportBtn) dom.wrongExportBtn.disabled = true;
     if (dom.wrongMoreBtn) dom.wrongMoreBtn.classList.add('hidden');
     return;
   }
@@ -1353,12 +1611,18 @@ function renderWrongBook() {
     dom.wrongEmpty.classList.remove('hidden');
     if (dom.wrongPracticeBtn) dom.wrongPracticeBtn.disabled = true;
     if (dom.wrongClearBtn) dom.wrongClearBtn.disabled = false;
+    if (dom.wrongClearHardBtn) dom.wrongClearHardBtn.disabled = false;
+    if (dom.wrongClearOldBtn) dom.wrongClearOldBtn.disabled = false;
+    if (dom.wrongExportBtn) dom.wrongExportBtn.disabled = true;
     if (dom.wrongMoreBtn) dom.wrongMoreBtn.classList.add('hidden');
     return;
   }
 
   if (dom.wrongPracticeBtn) dom.wrongPracticeBtn.disabled = false;
   if (dom.wrongClearBtn) dom.wrongClearBtn.disabled = false;
+  if (dom.wrongClearHardBtn) dom.wrongClearHardBtn.disabled = false;
+  if (dom.wrongClearOldBtn) dom.wrongClearOldBtn.disabled = false;
+  if (dom.wrongExportBtn) dom.wrongExportBtn.disabled = false;
   dom.wrongEmpty.classList.add('hidden');
 
   const html = entries.map((item) => (
@@ -1978,10 +2242,23 @@ function checkSpelling() {
   spellingFeedback(ok && spellingHintCount === 0);
 }
 
-function modalOpen() { return Boolean(dom.importModal.open || dom.importModal.hasAttribute('open')); }
+function modalOpen() {
+  const importOpen = Boolean(dom.importModal && (dom.importModal.open || dom.importModal.hasAttribute('open')));
+  const syncOpen = Boolean(dom.syncModal && (dom.syncModal.open || dom.syncModal.hasAttribute('open')));
+  return importOpen || syncOpen;
+}
 
 function onKeydown(e) {
-  if (modalOpen()) { if (e.key === 'Escape') closeImportModal(); return; }
+  if (modalOpen()) {
+    if (e.key === 'Escape') {
+      if (dom.syncModal && (dom.syncModal.open || dom.syncModal.hasAttribute('open'))) closeSyncModal();
+      else closeImportModal();
+    } else if (e.key === 'Enter' && dom.syncModal && (dom.syncModal.open || dom.syncModal.hasAttribute('open'))) {
+      e.preventDefault();
+      confirmSyncModal();
+    }
+    return;
+  }
 
   if (!dom.planView.classList.contains('hidden')) {
     if (e.key === 'Escape') showDashboard();
@@ -2064,7 +2341,35 @@ function bindEvents() {
   if (dom.planStartBtn) dom.planStartBtn.addEventListener('click', startPlannedSession);
   if (dom.exportDataBtn) dom.exportDataBtn.addEventListener('click', exportBackup);
   if (dom.importDataBtn) dom.importDataBtn.addEventListener('click', triggerImportBackup);
+  if (dom.syncCodeExportBtn) dom.syncCodeExportBtn.addEventListener('click', () => openSyncModal('export'));
+  if (dom.syncCodeImportBtn) dom.syncCodeImportBtn.addEventListener('click', () => openSyncModal('import'));
+  if (dom.syncModalCancelBtn) dom.syncModalCancelBtn.addEventListener('click', closeSyncModal);
+  if (dom.syncModalConfirmBtn) dom.syncModalConfirmBtn.addEventListener('click', confirmSyncModal);
+  if (dom.syncModal) {
+    dom.syncModal.addEventListener('click', (e) => {
+      if (e.target === dom.syncModal) closeSyncModal();
+    });
+  }
   if (dom.backupFileInput) dom.backupFileInput.addEventListener('change', handleBackupFileChange);
+  if (dom.reminderEnabledChk) {
+    dom.reminderEnabledChk.addEventListener('change', (e) => {
+      state.reminderEnabled = Boolean(e.target.checked);
+      if (state.reminderEnabled) askNotificationPermissionIfNeeded();
+      saveState();
+      scheduleReminder();
+      updateDashboard();
+      announce(state.reminderEnabled ? '已启用每日提醒' : '已关闭每日提醒');
+    });
+  }
+  if (dom.reminderTimeInput) {
+    dom.reminderTimeInput.addEventListener('change', (e) => {
+      state.reminderTime = String(e.target.value || '20:00');
+      saveState();
+      scheduleReminder();
+      updateDashboard();
+      announce(`提醒时间已更新为 ${state.reminderTime}`);
+    });
+  }
   if (dom.installAppBtn) dom.installAppBtn.addEventListener('click', handleInstallApp);
   if (dom.installDismissBtn) dom.installDismissBtn.addEventListener('click', dismissInstallEntry);
   if (dom.resumeSessionBtn) dom.resumeSessionBtn.addEventListener('click', resumeSavedSessionDirect);
@@ -2680,6 +2985,7 @@ function init() {
   bindCustomPlanEvents();
   showDashboard();
   if ('speechSynthesis' in window) window.speechSynthesis.getVoices();
+  scheduleReminder();
   registerInstallPrompt();
   registerSWEnhanced();
   registerOfflineDetection();

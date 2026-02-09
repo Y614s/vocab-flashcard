@@ -1428,6 +1428,10 @@ body {
     padding: 20px;
 }
 
+.sync-modal .modal-content {
+    padding: 20px;
+}
+
 .import-modal h2 {
     font-size: 22px;
     margin-bottom: 8px;
@@ -1651,6 +1655,114 @@ textarea:focus-visible {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
+}
+
+.insight-section {
+    margin-top: 14px;
+}
+
+.insight-cards {
+    display: grid;
+    gap: 10px;
+}
+
+.insight-card {
+    background: var(--bg-secondary);
+    border-radius: 14px;
+    padding: 12px;
+    box-shadow: var(--card-shadow);
+}
+
+.insight-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.insight-value {
+    margin-top: 6px;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.insight-chart {
+    margin-top: 8px;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
+    align-items: end;
+    min-height: 54px;
+}
+
+.insight-bar {
+    width: 100%;
+    border-radius: 8px 8px 4px 4px;
+    background: linear-gradient(180deg, rgba(0, 122, 255, 0.92), rgba(90, 200, 250, 0.86));
+    min-height: 8px;
+}
+
+.insight-mode-grid {
+    margin-top: 8px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.insight-mode-item {
+    border-radius: 10px;
+    padding: 8px;
+    background: var(--bg-tertiary);
+}
+
+.insight-mode-name {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.insight-mode-value {
+    margin-top: 3px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.sync-code-text {
+    width: 100%;
+    min-height: 140px;
+    border-radius: 12px;
+    border: 1px solid var(--ios-separator);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    padding: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    resize: vertical;
+}
+
+.sr-live {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.result-insights .section-title {
+    margin-top: 0;
+}
+
+input[type="time"] {
+    min-height: 36px;
+    border-radius: 10px;
+    border: 1px solid var(--ios-separator);
+    padding: 0 10px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
 }
 
 @media (max-width: 420px) {
@@ -1892,6 +2004,10 @@ textarea:focus-visible {
 }
 
 @media (max-width: 420px) {
+    .insight-mode-grid {
+        grid-template-columns: 1fr;
+    }
+
     .wrong-tool-row {
         grid-template-columns: 1fr;
     }

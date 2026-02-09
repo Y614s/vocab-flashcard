@@ -90,6 +90,13 @@
                         <span class="goal-value" id="dailyGoalValue">20</span>
                     </div>
                 </div>
+                <div class="setting-item">
+                    <label for="reminderEnabledChk">每日学习提醒</label>
+                    <div class="setting-control">
+                        <input id="reminderEnabledChk" type="checkbox" aria-label="启用每日学习提醒">
+                        <input id="reminderTimeInput" type="time" value="20:00" aria-label="提醒时间">
+                    </div>
+                </div>
             </section>
 
             <section class="data-tools">
@@ -97,6 +104,8 @@
                 <div class="data-actions">
                     <button class="data-btn" id="exportDataBtn" type="button">导出备份</button>
                     <button class="data-btn" id="importDataBtn" type="button">导入备份</button>
+                    <button class="data-btn" id="syncCodeExportBtn" type="button">生成同步码</button>
+                    <button class="data-btn" id="syncCodeImportBtn" type="button">导入同步码</button>
                     <input id="backupFileInput" type="file" accept=".json,application/json" hidden>
                 </div>
             </section>
@@ -161,6 +170,24 @@
                             <span class="mode-desc">拼写加深记忆</span>
                         </span>
                     </button>
+                </div>
+            </section>
+
+            <section class="insight-section" id="insightSection" aria-live="polite">
+                <h2 class="section-title">学习洞察</h2>
+                <div class="insight-cards">
+                    <div class="insight-card">
+                        <div class="insight-label">近7天学习量</div>
+                        <div class="insight-chart" id="insightChart7d"></div>
+                    </div>
+                    <div class="insight-card">
+                        <div class="insight-label">近30天正确率</div>
+                        <div class="insight-value" id="insightAccuracy30d">0%</div>
+                    </div>
+                    <div class="insight-card">
+                        <div class="insight-label">模式表现</div>
+                        <div class="insight-mode-grid" id="insightModeGrid"></div>
+                    </div>
                 </div>
             </section>
 
@@ -663,6 +690,20 @@
             <button class="update-banner-btn ghost" id="updateLaterBtn" type="button">稍后</button>
         </div>
     </div>
+
+    <dialog class="sync-modal" id="syncModal">
+        <div class="modal-content">
+            <h2 id="syncModalTitle">同步码</h2>
+            <p class="modal-hint" id="syncModalHint">复制同步码到另一台设备导入。</p>
+            <textarea id="syncCodeText" class="sync-code-text" placeholder="同步码"></textarea>
+            <div class="modal-actions">
+                <button class="modal-btn modal-btn-cancel" id="syncModalCancelBtn" type="button">关闭</button>
+                <button class="modal-btn modal-btn-confirm" id="syncModalConfirmBtn" type="button">确定</button>
+            </div>
+        </div>
+    </dialog>
+
+    <div class="sr-live" id="srLive" aria-live="polite" aria-atomic="true"></div>
 
     <script src="vocab_library.js"></script>
     <script src="core_utils.js"></script>
