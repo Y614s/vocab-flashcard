@@ -138,7 +138,9 @@ const dom = {
   importDataBtn: document.getElementById('importDataBtn'),
   syncCodeExportBtn: document.getElementById('syncCodeExportBtn'),
   syncCodeImportBtn: document.getElementById('syncCodeImportBtn'),
+  importWordsJsonBtn: document.getElementById('importWordsJsonBtn'),
   backupFileInput: document.getElementById('backupFileInput'),
+  wordJsonInput: document.getElementById('wordJsonInput'),
   installEntry: document.getElementById('installEntry'),
   installTip: document.getElementById('installTip'),
   installAppBtn: document.getElementById('installAppBtn'),
@@ -482,6 +484,7 @@ function normalizeStaticLabels() {
   if (dom.importDataBtn) dom.importDataBtn.textContent = '导入备份';
   if (dom.syncCodeExportBtn) dom.syncCodeExportBtn.textContent = '生成同步码';
   if (dom.syncCodeImportBtn) dom.syncCodeImportBtn.textContent = '导入同步码';
+  if (dom.importWordsJsonBtn) dom.importWordsJsonBtn.textContent = '导入词表JSON';
   if (dom.resultBackBtn) dom.resultBackBtn.textContent = '返回首页';
   if (dom.resultNextBtn) dom.resultNextBtn.textContent = '继续学习';
   if (dom.wrongPracticeBtn) dom.wrongPracticeBtn.textContent = '练习这些错题';
@@ -756,6 +759,146 @@ function applyStateMigrations(raw) {
 
   src.schemaVersion = Math.max(STATE_SCHEMA_VERSION, version);
   return src;
+}
+
+function triggerImportWordsJson() {
+  if (!dom.wordJsonInput) return;
+  dom.wordJsonInput.value = '';
+  dom.wordJsonInput.click();
+}
+
+function normalizeJsonWordItem(item) {
+  if (!item) return null;
+
+  if (Array.isArray(item)) {
+    const w = String(item[0] || '').trim();
+    const d = String(item[1] || '').trim();
+    if (!w || !d) return null;
+    return { word: w, definition: d, phonetic: '', mnemonic: '', etymology: '', example: '' };
+  }
+
+  if (typeof item === 'string') {
+    const text = item.trim();
+    if (!text) return null;
+    const parts = text.split(/[,\t，]/).map((x) => x.trim()).filter(Boolean);
+    if (parts.length < 2) return null;
+    return {
+      word: parts[0],
+      definition: parts.slice(1).join('，'),
+      phonetic: '',
+      mnemonic: '',
+      etymology: '',
+      example: ''
+    };
+  }
+
+  if (typeof item !== 'object') return null;
+
+  const word = String(item.word || item.term || item.vocab || item.text || item.name || item.en || item.english || '').trim();
+  let def = item.definition ?? item.meaning ?? item.translation ?? item.cn ?? item.zh ?? item.explain ?? item.gloss ?? '';
+  if (Array.isArray(def)) def = def.map((x) => String(x || '').trim()).filter(Boolean).join('；');
+  if (def && typeof def === 'object') def = JSON.stringify(def);
+  def = String(def || '').trim();
+  if (!word || !def) return null;
+
+  const phonetic = String(item.phonetic || item.pronunciation || item.pronounce || '').trim();
+  const mnemonic = String(item.mnemonic || item.memory || '').trim();
+  const etymology = String(item.etymology || item.origin || '').trim();
+  const example = String(item.example || item.sentence || '').trim();
+  return { word, definition: def, phonetic, mnemonic, etymology, example };
+}
+
+function pickWordArrayFromJson(data) {
+  if (Array.isArray(data)) return data;
+  if (!data || typeof data !== 'object') return [];
+
+  const candidateKeys = ['words', 'list', 'data', 'items', 'vocabulary', 'vocab', 'entries', 'wordList'];
+  for (let i = 0; i < candidateKeys.length; i += 1) {
+    const k = candidateKeys[i];
+    if (Array.isArray(data[k])) return data[k];
+  }
+
+  const firstLevel = Object.keys(data);
+  for (let i = 0; i < firstLevel.length; i += 1) {
+    const obj = data[firstLevel[i]];
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) continue;
+    for (let j = 0; j < candidateKeys.length; j += 1) {
+      const k = candidateKeys[j];
+      if (Array.isArray(obj[k])) return obj[k];
+    }
+  }
+
+  const values = Object.values(data);
+  const isDictionaryShape = values.length > 0 && values.every((v) => ['string', 'number', 'boolean'].includes(typeof v));
+  if (isDictionaryShape) {
+    return Object.keys(data).map((k) => ({ word: k, definition: data[k] }));
+  }
+
+  return [];
+}
+
+function parseWordsFromJsonPayload(payload) {
+  const arr = pickWordArrayFromJson(payload);
+  return arr.map(normalizeJsonWordItem).filter(Boolean);
+}
+
+function appendWordsToCurrentBook(words) {
+  const book = state.currentBook;
+  if (!Array.isArray(state.customWords[book])) state.customWords[book] = [];
+
+  const existing = new Set(getLibraryFor(book).map((w) => nword(w.word)));
+  let added = 0;
+  let duplicated = 0;
+  let invalid = 0;
+
+  words.forEach((w) => {
+    const item = normalizeJsonWordItem(w);
+    if (!item) {
+      invalid += 1;
+      return;
+    }
+    const key = nword(item.word);
+    if (!key) {
+      invalid += 1;
+      return;
+    }
+    if (existing.has(key)) {
+      duplicated += 1;
+      return;
+    }
+    state.customWords[book].push(item);
+    existing.add(key);
+    added += 1;
+  });
+
+  if (added > 0) {
+    saveState();
+    updateDashboard();
+  }
+
+  return { added, duplicated, invalid };
+}
+
+async function handleWordJsonFileChange(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  try {
+    const text = await readFileText(file);
+    const payload = JSON.parse(text);
+    const parsed = parseWordsFromJsonPayload(payload);
+    if (!parsed.length) {
+      alert('未识别到可导入的单词。支持数组词表或 {word: definition} 字典格式。');
+      return;
+    }
+    const stat = appendWordsToCurrentBook(parsed);
+    alert(`导入完成：新增 ${stat.added}，重复 ${stat.duplicated}，无效 ${stat.invalid}`);
+    announce(`词表导入完成，新增 ${stat.added} 个`);
+  } catch (e) {
+    alert('JSON 导入失败，请检查文件格式。');
+  } finally {
+    if (dom.wordJsonInput) dom.wordJsonInput.value = '';
+  }
 }
 
 function normalizeState(raw) {
@@ -2341,6 +2484,7 @@ function bindEvents() {
   if (dom.planStartBtn) dom.planStartBtn.addEventListener('click', startPlannedSession);
   if (dom.exportDataBtn) dom.exportDataBtn.addEventListener('click', exportBackup);
   if (dom.importDataBtn) dom.importDataBtn.addEventListener('click', triggerImportBackup);
+  if (dom.importWordsJsonBtn) dom.importWordsJsonBtn.addEventListener('click', triggerImportWordsJson);
   if (dom.syncCodeExportBtn) dom.syncCodeExportBtn.addEventListener('click', () => openSyncModal('export'));
   if (dom.syncCodeImportBtn) dom.syncCodeImportBtn.addEventListener('click', () => openSyncModal('import'));
   if (dom.syncModalCancelBtn) dom.syncModalCancelBtn.addEventListener('click', closeSyncModal);
@@ -2351,6 +2495,7 @@ function bindEvents() {
     });
   }
   if (dom.backupFileInput) dom.backupFileInput.addEventListener('change', handleBackupFileChange);
+  if (dom.wordJsonInput) dom.wordJsonInput.addEventListener('change', handleWordJsonFileChange);
   if (dom.reminderEnabledChk) {
     dom.reminderEnabledChk.addEventListener('change', (e) => {
       state.reminderEnabled = Boolean(e.target.checked);
