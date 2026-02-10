@@ -163,6 +163,7 @@
   }
 
   global.VocabCore = {
+    defaults: { ...DEFAULTS },
     clampNumber,
     intervalToLevel,
     normalizeSearchText,

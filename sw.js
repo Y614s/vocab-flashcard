@@ -54,7 +54,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  event.respondWith(fetch(request).catch(() => caches.match(request)));
+  event.respondWith(
+    fetch(request).catch(async () => {
+      const cached = await caches.match(request);
+      if (cached) return cached;
+      return new Response('Offline', { status: 503, statusText: 'Offline' });
+    })
+  );
 });
 
 function isStaticAsset(pathname) {
@@ -99,5 +105,7 @@ async function staleWhileRevalidate(request) {
   if (cached) return cached;
   const network = await networkPromise;
   if (network) return network;
-  return caches.match(request);
+  const fallback = await caches.match(request);
+  if (fallback) return fallback;
+  return new Response('Offline', { status: 503, statusText: 'Offline' });
 }

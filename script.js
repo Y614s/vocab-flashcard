@@ -12,10 +12,11 @@ const SEARCH_DEBOUNCE_MS = 180;
 const INSTALL_DISMISS_KEY = 'vocab_install_dismiss_until_v1';
 const INSTALL_DISMISS_DAYS = 7;
 const REVIEW_INTERVALS = [0, 1, 3, 7, 14, 30];
-const SM2_MIN_EASE = 1.3;
-const SM2_MAX_EASE = 2.9;
-const SM2_DEFAULT_EASE = 2.5;
-const SM2_MAX_INTERVAL_DAYS = 120;
+const CORE_DEFAULTS = window.VocabCore && window.VocabCore.defaults ? window.VocabCore.defaults : {};
+const SM2_MIN_EASE = Number(CORE_DEFAULTS.sm2MinEase) || 1.3;
+const SM2_MAX_EASE = Number(CORE_DEFAULTS.sm2MaxEase) || 2.9;
+const SM2_DEFAULT_EASE = Number(CORE_DEFAULTS.sm2DefaultEase) || 2.5;
+const SM2_MAX_INTERVAL_DAYS = Number(CORE_DEFAULTS.sm2MaxIntervalDays) || 120;
 const WRONG_PAGE_SIZE = 30;
 const MODES = new Set(['flashcard', 'picture', 'listening', 'spelling']);
 const PICTURE_EMOJIS = ['🧩', '🎯', '📚', '🧠', '🔍', '🌟', '🧭', '📝', '🎨', '🪄'];
@@ -388,13 +389,21 @@ function openSyncModal(mode) {
   if (mode === 'export') {
     dom.syncModalTitle.textContent = '生成同步码';
     dom.syncModalHint.textContent = '复制同步码到另一台设备，使用“导入同步码”恢复数据。';
-    dom.syncCodeText.value = btoa(unescape(encodeURIComponent(JSON.stringify(backupPayload()))));
+    try {
+      dom.syncCodeText.value = encodeSyncPayload(backupPayload());
+      if (dom.syncModalConfirmBtn) dom.syncModalConfirmBtn.disabled = false;
+    } catch (e) {
+      dom.syncCodeText.value = '';
+      dom.syncModalHint.textContent = '当前数据较大，不适合同步码。请使用“导出备份”文件方式。';
+      if (dom.syncModalConfirmBtn) dom.syncModalConfirmBtn.disabled = true;
+    }
     dom.syncCodeText.readOnly = true;
   } else {
     dom.syncModalTitle.textContent = '导入同步码';
     dom.syncModalHint.textContent = '粘贴同步码后点击确定，将覆盖当前本地数据。';
     dom.syncCodeText.value = '';
     dom.syncCodeText.readOnly = false;
+    if (dom.syncModalConfirmBtn) dom.syncModalConfirmBtn.disabled = false;
   }
   if (typeof dom.syncModal.showModal === 'function') dom.syncModal.showModal();
   else dom.syncModal.setAttribute('open', '');
@@ -419,8 +428,7 @@ function confirmSyncModal() {
     return;
   }
   try {
-    const jsonText = decodeURIComponent(escape(atob(code)));
-    const parsed = JSON.parse(jsonText);
+    const parsed = decodeSyncPayload(code);
     const ok = window.confirm('导入同步码将覆盖当前学习数据，是否继续？');
     if (!ok) return;
     applyImportedBackup(parsed);
@@ -438,6 +446,69 @@ function parseReminderMinutes(timeText) {
   const hh = Math.max(0, Math.min(23, Number(m[1]) || 0));
   const mm = Math.max(0, Math.min(59, Number(m[2]) || 0));
   return hh * 60 + mm;
+}
+
+const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+function bytesToBase64(bytes) {
+  const arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || []);
+  let out = '';
+  for (let i = 0; i < arr.length; i += 3) {
+    const a = arr[i];
+    const b = i + 1 < arr.length ? arr[i + 1] : 0;
+    const c = i + 2 < arr.length ? arr[i + 2] : 0;
+    const triple = (a << 16) | (b << 8) | c;
+    out += BASE64_ALPHABET[(triple >> 18) & 0x3f];
+    out += BASE64_ALPHABET[(triple >> 12) & 0x3f];
+    out += i + 1 < arr.length ? BASE64_ALPHABET[(triple >> 6) & 0x3f] : '=';
+    out += i + 2 < arr.length ? BASE64_ALPHABET[triple & 0x3f] : '=';
+  }
+  return out;
+}
+
+function base64ToBytes(input) {
+  const str = String(input || '').replace(/\s+/g, '');
+  if (!str || str.length % 4 !== 0) throw new Error('invalid_base64');
+
+  const table = {};
+  for (let i = 0; i < BASE64_ALPHABET.length; i += 1) {
+    table[BASE64_ALPHABET[i]] = i;
+  }
+
+  const output = [];
+  for (let i = 0; i < str.length; i += 4) {
+    const c1 = str[i];
+    const c2 = str[i + 1];
+    const c3 = str[i + 2];
+    const c4 = str[i + 3];
+    if (!(c1 in table) || !(c2 in table) || (c3 !== '=' && !(c3 in table)) || (c4 !== '=' && !(c4 in table))) {
+      throw new Error('invalid_base64');
+    }
+
+    const b1 = table[c1];
+    const b2 = table[c2];
+    const b3 = c3 === '=' ? 0 : table[c3];
+    const b4 = c4 === '=' ? 0 : table[c4];
+    const triple = (b1 << 18) | (b2 << 12) | (b3 << 6) | b4;
+    output.push((triple >> 16) & 0xff);
+    if (c3 !== '=') output.push((triple >> 8) & 0xff);
+    if (c4 !== '=') output.push(triple & 0xff);
+  }
+
+  return new Uint8Array(output);
+}
+
+function encodeSyncPayload(payload) {
+  const json = JSON.stringify(payload);
+  const bytes = new TextEncoder().encode(json);
+  if (bytes.length > 1200000) throw new Error('sync_too_large');
+  return bytesToBase64(bytes);
+}
+
+function decodeSyncPayload(code) {
+  const bytes = base64ToBytes(code);
+  const json = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+  return JSON.parse(json);
 }
 
 function askNotificationPermissionIfNeeded() {
