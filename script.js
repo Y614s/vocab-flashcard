@@ -69,6 +69,8 @@ let sessionWordStats = {};
 let swRegistrationRef = null;
 let reminderTimer = null;
 let syncModalMode = '';
+let vocabLibraryReady = typeof window.getLibrary === 'function';
+let vocabLibraryPromise = null;
 let sessionResult = {
   startAt: 0,
   endAt: 0,
@@ -494,6 +496,30 @@ function normalizeStaticLabels() {
   if (dom.wrongExportBtn) dom.wrongExportBtn.textContent = '导出错题';
 }
 
+function ensureVocabLibraryLoaded() {
+  if (vocabLibraryReady) return Promise.resolve();
+  if (vocabLibraryPromise) return vocabLibraryPromise;
+
+  vocabLibraryPromise = new Promise((resolve) => {
+    const script = document.createElement('script');
+    script.src = './vocab_library.js';
+    script.async = true;
+    script.onload = () => {
+      vocabLibraryReady = typeof window.getLibrary === 'function';
+      resolve();
+    };
+    script.onerror = () => {
+      showSessionToast('词库加载失败，请检查网络后重试');
+      resolve();
+    };
+    document.body.appendChild(script);
+  }).finally(() => {
+    vocabLibraryPromise = null;
+  });
+
+  return vocabLibraryPromise;
+}
+
 function clampNumber(value, min, max, fallback) {
   if (window.VocabCore && typeof window.VocabCore.clampNumber === 'function') {
     return window.VocabCore.clampNumber(value, min, max, fallback);
@@ -884,6 +910,8 @@ async function handleWordJsonFileChange(event) {
   if (!file) return;
 
   try {
+    const okLib = await ensureLibraryBeforeAction();
+    if (!okLib) return;
     const text = await readFileText(file);
     const payload = JSON.parse(text);
     const parsed = parseWordsFromJsonPayload(payload);
@@ -1509,6 +1537,17 @@ function showDashboard() {
   updateDashboard();
 }
 
+async function ensureLibraryBeforeAction() {
+  if (vocabLibraryReady) return true;
+  showSessionToast('正在加载词库...');
+  await ensureVocabLibraryLoaded();
+  if (!vocabLibraryReady) {
+    alert('词库加载失败，请检查网络后重试。');
+    return false;
+  }
+  return true;
+}
+
 function completeSession() {
   sessionResult.endAt = Date.now();
   const finalCount = sessionStudied;
@@ -1635,7 +1674,9 @@ function selectMode(mode) {
   state.learningMode = mode; saveState(); updateDashboard();
 }
 
-function startSession() {
+async function startSession() {
+  const ok = await ensureLibraryBeforeAction();
+  if (!ok) return;
   openMainPlanPage();
 }
 
@@ -1668,7 +1709,9 @@ function openPlanWithQueue(queue, mode, modeText) {
   showOnly(dom.planView);
 }
 
-function openQuickPlan(type, options = {}) {
+async function openQuickPlan(type, options = {}) {
+  const okLib = await ensureLibraryBeforeAction();
+  if (!okLib) return;
   const allowResume = options.allowResume !== false;
   if (allowResume) {
     const resumed = tryResumeSession();
@@ -1709,7 +1752,9 @@ function openQuickPlan(type, options = {}) {
   openPlanWithQueue(queue, mode, modeText);
 }
 
-function openMainPlanPage() {
+async function openMainPlanPage() {
+  const okLib = await ensureLibraryBeforeAction();
+  if (!okLib) return;
   const resumed = tryResumeSession();
   if (resumed) return;
 
@@ -1791,7 +1836,9 @@ function renderWrongBook() {
   }
 }
 
-function showWrongBookPage() {
+async function showWrongBookPage() {
+  const okLib = await ensureLibraryBeforeAction();
+  if (!okLib) return;
   clearTimer();
   hideFeedback();
   wrongBookPage = 1;
@@ -2799,10 +2846,17 @@ function watchServiceWorkerUpdates(registration) {
 function registerSWEnhanced() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').then((registration) => {
-      swRegistrationRef = registration;
-      watchServiceWorkerUpdates(registration);
-    }).catch(() => {});
+    const register = () => {
+      navigator.serviceWorker.register('./sw.js').then((registration) => {
+        swRegistrationRef = registration;
+        watchServiceWorkerUpdates(registration);
+      }).catch(() => {});
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+      window.requestIdleCallback(register, { timeout: 2500 });
+    } else {
+      setTimeout(register, 1200);
+    }
   });
 }
 

@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v6';
+const CACHE_VERSION = 'v7';
 const APP_SHELL_CACHE = `vocab-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `vocab-runtime-${CACHE_VERSION}`;
 
@@ -8,12 +8,8 @@ const APP_SHELL_ASSETS = [
   './style.css',
   './script.js',
   './core_utils.js',
-  './vocab_library.js',
   './manifest.json',
-  './icon.svg',
-  './3-CET4-顺序.json',
-  './4-CET6-顺序.json',
-  './5-考研-顺序.json'
+  './icon.svg'
 ];
 
 self.addEventListener('install', (event) => {
