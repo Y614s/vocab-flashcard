@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v7';
+const CACHE_VERSION = 'v8';
 const APP_SHELL_CACHE = `vocab-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `vocab-runtime-${CACHE_VERSION}`;
 
@@ -9,7 +9,12 @@ const APP_SHELL_ASSETS = [
   './script.js',
   './core_utils.js',
   './manifest.json',
-  './icon.svg'
+  './icon.svg',
+  './icon-180.png',
+  './icon-192.png',
+  './icon-512.png',
+  // 词库较大，但预缓存后首次安装即可离线学习
+  './vocab_library.js'
 ];
 
 self.addEventListener('install', (event) => {

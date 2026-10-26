@@ -13,31 +13,33 @@ function loadJsonFile(filename) {
     return JSON.parse(content);
 }
 
+const MAX_PHRASES = 3;
+
 // 转换单词格式
 function convertWord(item) {
     // 原格式：{ word, translations: [{translation, type}], phrases?: [...] }
-    // 目标格式：{ word, phonetic, definition, example, mnemonic, etymology }
+    // 目标格式：{ word, definition, example? }（phonetic / mnemonic / etymology 可选）
 
     // 合并所有翻译
     const definitions = item.translations
         ? item.translations.map(t => `${t.type ? t.type + '. ' : ''}${t.translation}`).join('；')
         : '';
 
-    // 取第一个短语作为例句
-    let example = '';
-    if (item.phrases && item.phrases.length > 0) {
-        const phrase = item.phrases[0];
-        example = `${phrase.phrase}：${phrase.translation}`;
-    }
+    // 取前几个常用词组作为例句，每行一个
+    const example = (item.phrases || [])
+        .slice(0, MAX_PHRASES)
+        .map(p => `${p.phrase}：${p.translation}`)
+        .join('\n');
 
-    return {
-        word: item.word,
-        phonetic: '',  // JSON中没有音标数据
-        definition: definitions,
-        example: example,
-        mnemonic: '',
-        etymology: ''
-    };
+    // 原始数据没有音标、助记、词源，空字段不写入以减小词库体积（前端会按空字符串处理）
+    const out = { word: item.word, definition: definitions };
+    if (example) out.example = example;
+    return out;
+}
+
+// 每个词一行，体积比缩进格式小得多，同时保持 diff 可读
+function serializeWords(words) {
+    return `[\n${words.map(w => JSON.stringify(w)).join(',\n')}\n]`;
 }
 
 // 主函数
@@ -99,17 +101,17 @@ const LibraryConfig = {
 // ========================================
 // CET4 词汇
 // ========================================
-const CET4_DATA = ${JSON.stringify(cet4Words, null, 4)};
+const CET4_DATA = ${serializeWords(cet4Words)};
 
 // ========================================
 // CET6 词汇
 // ========================================
-const CET6_DATA = ${JSON.stringify(cet6Words, null, 4)};
+const CET6_DATA = ${serializeWords(cet6Words)};
 
 // ========================================
 // 考研词汇
 // ========================================
-const KAOYAN_DATA = ${JSON.stringify(kaoyanWords, null, 4)};
+const KAOYAN_DATA = ${serializeWords(kaoyanWords)};
 
 // ========================================
 // 获取词库接口

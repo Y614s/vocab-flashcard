@@ -13,7 +13,7 @@
 - 学习计划页（开学前展示今日任务拆分）
 - 学习结果页（完成后展示本轮统计）
 - 间隔复习（基于熟悉度等级）
-- 错题即时回收（答错后会在本轮后续再次出现）
+- 错题即时回收（答错后会在本轮后续再次出现；重练只计入本轮统计，不影响长期复习间隔）
 - 每日新词目标
 - 学习统计（今日、连续天数、累计学习）
 - 本地持久化（`localStorage`）
@@ -67,7 +67,8 @@ accurate, 精确的
 - `index.html`：页面结构
 - `style.css`：样式
 - `script.js`：核心交互逻辑
-- `vocab_library.js`：词库数据入口
+- `core_utils.js`：复习算法、错题排序等纯逻辑（`tests/` 中有回归测试）
+- `vocab_library.js`：词库数据入口，由 `node import_vocab.js` 从三个原始 JSON 生成，请勿手动编辑
 - `sw.js`：Service Worker 缓存策略
 - `manifest.json`：PWA 清单
 
