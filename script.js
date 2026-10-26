@@ -12,7 +12,9 @@ const SEARCH_DEBOUNCE_MS = 180;
 const INSTALL_DISMISS_KEY = 'vocab_install_dismiss_until_v1';
 const INSTALL_DISMISS_DAYS = 7;
 const REVIEW_INTERVALS = [0, 1, 3, 7, 14, 30];
-const CORE_DEFAULTS = window.VocabCore && window.VocabCore.defaults ? window.VocabCore.defaults : {};
+// 纯逻辑（复习算法、错题排序等）统一在 core_utils.js，index.html 中先于本文件同步加载
+const Core = window.VocabCore;
+const CORE_DEFAULTS = Core.defaults;
 const SM2_MIN_EASE = Number(CORE_DEFAULTS.sm2MinEase) || 1.3;
 const SM2_MAX_EASE = Number(CORE_DEFAULTS.sm2MaxEase) || 2.9;
 const SM2_DEFAULT_EASE = Number(CORE_DEFAULTS.sm2DefaultEase) || 2.5;
@@ -163,6 +165,7 @@ const dom = {
   mnemonicText: document.getElementById('mnemonicText'),
   etymologyText: document.getElementById('etymologyText'),
   exampleText: document.getElementById('exampleText'),
+  cardDivider: document.querySelector('#wordCard .divider'),
   playBtn: document.getElementById('playBtn'),
   btnUnknown: document.getElementById('btnUnknown'),
   btnFuzzy: document.getElementById('btnFuzzy'),
@@ -591,27 +594,9 @@ function ensureVocabLibraryLoaded() {
   return vocabLibraryPromise;
 }
 
-function clampNumber(value, min, max, fallback) {
-  if (window.VocabCore && typeof window.VocabCore.clampNumber === 'function') {
-    return window.VocabCore.clampNumber(value, min, max, fallback);
-  }
-  const n = Number(value);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.max(min, Math.min(max, n));
-}
+function clampNumber(value, min, max, fallback) { return Core.clampNumber(value, min, max, fallback); }
 
-function intervalToLevel(days) {
-  if (window.VocabCore && typeof window.VocabCore.intervalToLevel === 'function') {
-    return window.VocabCore.intervalToLevel(days);
-  }
-  const d = Math.max(0, Number(days) || 0);
-  if (d >= 60) return 5;
-  if (d >= 21) return 4;
-  if (d >= 7) return 3;
-  if (d >= 3) return 2;
-  if (d >= 1) return 1;
-  return 0;
-}
+function intervalToLevel(days) { return Core.intervalToLevel(days); }
 
 function escapeHtml(value) {
   return String(value || '')
@@ -1083,9 +1068,20 @@ function getBookName(book) {
   return book === 'cet6' ? '大学英语六级' : book === 'kaoyan' ? '考研英语' : '大学英语四级';
 }
 
+// 按词书缓存合并后的词表；内置词库或自定义词变化（引用或长度）时自动重建。返回值只读，调用方不要修改。
+const libraryCache = new Map();
+
 function getLibraryFor(book = state.currentBook) {
   const base = typeof getLibrary === 'function' ? (getLibrary(book) || []) : [];
   const custom = state.customWords[book] || [];
+  const cached = libraryCache.get(book);
+  if (cached && cached.base === base && cached.custom === custom && cached.customLength === custom.length) return cached.list;
+  const out = buildLibrary(base, custom);
+  libraryCache.set(book, { base, custom, customLength: custom.length, list: out });
+  return out;
+}
+
+function buildLibrary(base, custom) {
   const seen = new Set(); const out = [];
   [...base, ...custom].forEach((w) => {
     if (!w || !w.word || !w.definition) return;
@@ -1120,51 +1116,7 @@ function generateWrongQueue(limit = Math.max(20, state.dailyGoal)) {
   const book = state.currentBook;
   const lib = getLibraryFor(book);
   if (!lib.length) return [];
-
-  if (window.VocabCore && typeof window.VocabCore.buildWrongQueue === 'function') {
-    return window.VocabCore.buildWrongQueue({
-      bookId: book,
-      library: lib,
-      records: state.wordRecords,
-      limit
-    });
-  }
-
-  const byWord = new Map();
-  lib.forEach((w, i) => {
-    byWord.set(nword(w.word), { ...w, originalIndex: i });
-  });
-
-  const ranked = [];
-  Object.keys(state.wordRecords).forEach((k) => {
-    const r = state.wordRecords[k];
-    if (!r || r.bookId !== book || !r.word) return;
-    const libWord = byWord.get(nword(r.word));
-    if (!libWord) return;
-
-    const incorrect = Math.max(0, Number(r.incorrectCount) || 0);
-    const fuzzy = Math.max(0, Number(r.fuzzyCount) || 0);
-    const correct = Math.max(0, Number(r.correctCount) || 0);
-    if (incorrect <= 0 && fuzzy < 2) return;
-
-    const level = Math.max(0, Number(r.level) || 0);
-    const lapse = Math.max(0, Number(r.lapseCount) || 0);
-    const lastPenalty = r.lastResult === 'unknown' ? 2 : r.lastResult === 'fuzzy' ? 1 : 0;
-    const score = incorrect * 2 + fuzzy + lapse + lastPenalty - Math.floor(correct / 2) - level;
-    ranked.push({
-      ...libWord,
-      isReview: true,
-      currentLevel: level,
-      wrongScore: score
-    });
-  });
-
-  ranked.sort((a, b) => (b.wrongScore || 0) - (a.wrongScore || 0));
-  return ranked.slice(0, limit).map((w) => {
-    const out = { ...w };
-    delete out.wrongScore;
-    return out;
-  });
+  return Core.buildWrongQueue({ bookId: book, library: lib, records: state.wordRecords, limit });
 }
 
 function getWrongEntries(book = state.currentBook, limit = 200) {
@@ -1202,44 +1154,11 @@ function getWrongEntries(book = state.currentBook, limit = 200) {
   return list.slice(0, Math.max(1, Number(limit) || 200));
 }
 
-function normalizeSearchText(value) {
-  if (window.VocabCore && typeof window.VocabCore.normalizeSearchText === 'function') {
-    return window.VocabCore.normalizeSearchText(value);
-  }
-  return String(value || '').trim().toLowerCase();
-}
+function normalizeSearchText(value) { return Core.normalizeSearchText(value); }
 
-function wrongEntryMatches(entry, keyword) {
-  if (window.VocabCore && typeof window.VocabCore.wrongEntryMatches === 'function') {
-    return window.VocabCore.wrongEntryMatches(entry, keyword);
-  }
-  const k = normalizeSearchText(keyword);
-  if (!k) return true;
-  const word = normalizeSearchText(entry.word);
-  const def = normalizeSearchText(entry.definition);
-  return word.includes(k) || def.includes(k);
-}
+function wrongEntryMatches(entry, keyword) { return Core.wrongEntryMatches(entry, keyword); }
 
-function sortWrongEntries(list, sortKey) {
-  if (window.VocabCore && typeof window.VocabCore.sortWrongEntries === 'function') {
-    return window.VocabCore.sortWrongEntries(list, sortKey);
-  }
-  const x = [...list];
-  if (sortKey === 'alpha') {
-    x.sort((a, b) => String(a.word || '').localeCompare(String(b.word || ''), 'en'));
-    return x;
-  }
-  if (sortKey === 'due') {
-    x.sort((a, b) => String(a.nextReviewDate || '').localeCompare(String(b.nextReviewDate || '')));
-    return x;
-  }
-  if (sortKey === 'recent') {
-    x.sort((a, b) => String(b.lastSeen || '').localeCompare(String(a.lastSeen || '')));
-    return x;
-  }
-  x.sort((a, b) => b.score - a.score);
-  return x;
-}
+function sortWrongEntries(list, sortKey) { return Core.sortWrongEntries(list, sortKey); }
 
 function syncWrongFilterControls() {
   if (dom.wrongSearchInput) dom.wrongSearchInput.value = wrongBookFilters.keyword;
@@ -1289,13 +1208,7 @@ function highlightKeyword(text, keyword) {
 
 function getVisibleWrongEntries(book = state.currentBook) {
   const allEntries = getWrongEntries(book, 2000);
-  if (window.VocabCore && typeof window.VocabCore.filterWrongEntries === 'function') {
-    return window.VocabCore.filterWrongEntries(allEntries, wrongBookFilters);
-  }
-  const filtered = allEntries
-    .filter((item) => wrongEntryMatches(item, wrongBookFilters.keyword))
-    .filter((item) => !wrongBookFilters.onlyHard || item.score >= 6);
-  return sortWrongEntries(filtered, wrongBookFilters.sort);
+  return Core.filterWrongEntries(allEntries, wrongBookFilters);
 }
 
 function generateSessionQueue() {
@@ -1315,17 +1228,6 @@ function generateSessionQueue() {
     news.push({ ...w, isReview: false, currentLevel: 0, originalIndex: i });
   }
   return shuffle([...review, ...news]);
-}
-
-function updateWordRecord(wordObj, status) {
-  const book = state.currentBook; const t = today(); const key = rkey(book, wordObj.word);
-  const r = state.wordRecords[key] || { bookId: book, word: wordObj.word, level: 0, firstSeen: t, lastSeen: t, nextReviewDate: t, correctCount: 0, incorrectCount: 0, fuzzyCount: 0 };
-  r.lastSeen = t;
-  if (status === 'known') { r.level = Math.min(r.level + 1, REVIEW_INTERVALS.length - 1); r.correctCount += 1; }
-  else if (status === 'unknown') { r.level = 0; r.incorrectCount += 1; }
-  else { r.level = Math.max(r.level - 1, 0); r.fuzzyCount += 1; }
-  r.nextReviewDate = addDays(t, REVIEW_INTERVALS[r.level] || 0);
-  state.wordRecords[key] = r;
 }
 
 function updateWordRecord(wordObj, status) {
@@ -1368,72 +1270,28 @@ function updateWordRecord(wordObj, status) {
   );
   let easeFactor = clampNumber(r.easeFactor, SM2_MIN_EASE, SM2_MAX_EASE, SM2_DEFAULT_EASE);
 
-  if (window.VocabCore && typeof window.VocabCore.computeReviewProgress === 'function') {
-    const next = window.VocabCore.computeReviewProgress(
-      { level, repetition, intervalDays, easeFactor },
-      status,
-      {
-        sm2MinEase: SM2_MIN_EASE,
-        sm2MaxEase: SM2_MAX_EASE,
-        sm2DefaultEase: SM2_DEFAULT_EASE,
-        sm2MaxIntervalDays: SM2_MAX_INTERVAL_DAYS
-      }
-    );
-    level = next.level;
-    repetition = next.repetition;
-    intervalDays = next.intervalDays;
-    easeFactor = next.easeFactor;
-    if (status === 'unknown') {
-      r.incorrectCount += 1;
-      r.lapseCount += 1;
-    } else if (status === 'fuzzy') {
-      r.fuzzyCount += 1;
-      r.lapseCount += 1;
-    } else {
-      r.correctCount += 1;
+  const next = Core.computeReviewProgress(
+    { level, repetition, intervalDays, easeFactor },
+    status,
+    {
+      sm2MinEase: SM2_MIN_EASE,
+      sm2MaxEase: SM2_MAX_EASE,
+      sm2DefaultEase: SM2_DEFAULT_EASE,
+      sm2MaxIntervalDays: SM2_MAX_INTERVAL_DAYS
     }
-
-    intervalDays = clampNumber(intervalDays, 1, SM2_MAX_INTERVAL_DAYS, 1);
-    r.level = level;
-    r.repetition = repetition;
-    r.intervalDays = intervalDays;
-    r.easeFactor = easeFactor;
-    r.lastResult = status;
-    r.nextReviewDate = addDays(t, intervalDays);
-    state.wordRecords[key] = r;
-    return;
-  }
-
+  );
+  level = next.level;
+  repetition = next.repetition;
+  intervalDays = next.intervalDays;
+  easeFactor = next.easeFactor;
   if (status === 'unknown') {
     r.incorrectCount += 1;
     r.lapseCount += 1;
-    repetition = 0;
-    intervalDays = 1;
-    easeFactor = Math.max(SM2_MIN_EASE, easeFactor - 0.2);
-    level = Math.max(0, level - 1);
   } else if (status === 'fuzzy') {
     r.fuzzyCount += 1;
     r.lapseCount += 1;
-    if (repetition === 0) {
-      repetition = 1;
-      intervalDays = 1;
-    } else if (repetition === 1) {
-      repetition = 2;
-      intervalDays = 2;
-    } else {
-      repetition += 1;
-      intervalDays = Math.max(2, Math.round(intervalDays * 0.75));
-    }
-    easeFactor = Math.max(SM2_MIN_EASE, easeFactor - 0.05);
-    level = Math.max(0, intervalToLevel(intervalDays) - 1);
   } else {
     r.correctCount += 1;
-    if (repetition === 0) intervalDays = 1;
-    else if (repetition === 1) intervalDays = 3;
-    else intervalDays = Math.max(4, Math.round(intervalDays * easeFactor));
-    repetition += 1;
-    easeFactor = Math.min(SM2_MAX_EASE, easeFactor + 0.02);
-    level = intervalToLevel(intervalDays);
   }
 
   intervalDays = clampNumber(intervalDays, 1, SM2_MAX_INTERVAL_DAYS, 1);
@@ -1443,15 +1301,20 @@ function updateWordRecord(wordObj, status) {
   r.easeFactor = easeFactor;
   r.lastResult = status;
   r.nextReviewDate = addDays(t, intervalDays);
-
   state.wordRecords[key] = r;
 }
 
 function applyStudy(status) {
   if (!currentWord) return;
+  const key = rkey(state.currentBook, currentWord.word);
+  // 本轮内的错题重练只计入本轮薄弱词统计，不再推进长期复习记录和学习计数
+  const isRetry = Math.max(0, Number(currentWord.retryCount) || 0) > 0;
+  if (isRetry) {
+    if (sessionWordStats[key] && sessionWordStats[key][status] !== undefined) sessionWordStats[key][status] += 1;
+    return;
+  }
   markStudyToday();
   updateWordRecord(currentWord, status);
-  const key = rkey(state.currentBook, currentWord.word);
   if (!sessionWordStats[key]) {
     sessionWordStats[key] = {
       word: currentWord.word,
@@ -2214,10 +2077,18 @@ function loadFlashcardWord() {
   answerLocked = false;
   dom.word.textContent = currentWord.word || '暂无单词';
   dom.phonetic.textContent = currentWord.phonetic || '';
+  dom.phonetic.classList.toggle('hidden', !currentWord.phonetic);
   dom.meaning.textContent = currentWord.definition || '';
-  dom.mnemonicText.textContent = currentWord.mnemonic || '暂无助记';
-  dom.etymologyText.textContent = currentWord.etymology || '暂无词源';
-  dom.exampleText.textContent = currentWord.example || '暂无例句';
+  // 没有内容的字段直接隐藏，不再显示"暂无…"
+  const fields = [[dom.mnemonicText, currentWord.mnemonic], [dom.etymologyText, currentWord.etymology], [dom.exampleText, currentWord.example]];
+  let hasExtra = false;
+  fields.forEach(([el, value]) => {
+    const text = String(value || '').trim();
+    el.textContent = text;
+    if (el.parentElement) el.parentElement.classList.toggle('hidden', !text);
+    if (text) hasExtra = true;
+  });
+  if (dom.cardDivider) dom.cardDivider.classList.toggle('hidden', !hasExtra);
   dom.wordCard.classList.remove('flipped');
 }
 
@@ -2294,13 +2165,36 @@ function handleImport() {
   alert(count ? `成功导入 ${count} 个单词。` : '导入完成，但没有新增条目（重复词已自动跳过）。');
 }
 
+// 释义开头的词性，如 "v. 吸收" → "v"
+function definitionPos(definition) {
+  const m = /^\s*([a-z]+)\./i.exec(String(definition || ''));
+  return m ? m[1].toLowerCase() : '';
+}
+
+// 随机抽取干扰项：优先同词性（避免看词性就能排除），不足时再用其他词补足；不打乱整本词库
 function quizOptions(correct, count = 4) {
   const lib = getLibraryFor(state.currentBook);
-  const opts = [correct];
-  const pool = shuffle(lib.filter((w) => nword(w.word) !== nword(correct.word) && w.definition !== correct.definition));
-  for (let i = 0; i < pool.length && opts.length < count; i += 1) opts.push(pool[i]);
+  const need = count - 1;
+  const pos = definitionPos(correct.definition);
+  const usedWords = new Set([nword(correct.word)]);
+  const usedDefs = new Set([correct.definition]);
+  const picked = [];
+  const tryPick = (w, requirePos) => {
+    if (!w || usedWords.has(nword(w.word)) || usedDefs.has(w.definition)) return;
+    if (requirePos && definitionPos(w.definition) !== pos) return;
+    usedWords.add(nword(w.word)); usedDefs.add(w.definition);
+    picked.push(w);
+  };
+  const attempts = Math.min(lib.length * 2, 200);
+  if (pos) {
+    for (let i = 0; i < attempts && picked.length < need; i += 1) tryPick(lib[Math.floor(Math.random() * lib.length)], true);
+  }
+  for (let i = 0; i < attempts && picked.length < need; i += 1) tryPick(lib[Math.floor(Math.random() * lib.length)], false);
+  // 词库很小时随机抽取可能漏掉，按顺序兜底
+  for (let i = 0; i < lib.length && picked.length < need; i += 1) tryPick(lib[i], false);
+  const opts = [correct, ...picked];
   while (opts.length < count) opts.push(correct);
-  return shuffle(opts.slice(0, count));
+  return shuffle(opts);
 }
 
 function showPictureMode() {
@@ -2318,6 +2212,7 @@ function loadPictureWord() {
   if (pictureCorrect < 0) pictureCorrect = 0;
   dom.pictureWord.textContent = currentWord.word;
   dom.picturePhonetic.textContent = currentWord.phonetic || '';
+  dom.picturePhonetic.classList.toggle('hidden', !currentWord.phonetic);
   dom.pictureOptions.querySelectorAll('.picture-option').forEach((btn, i) => {
     btn.classList.remove('correct', 'wrong', 'disabled');
     const t = btn.querySelector('.picture-text'); if (t) t.textContent = pictureOptions[i] ? pictureOptions[i].definition : '';
@@ -2892,9 +2787,12 @@ function showUpdateBanner(message, onUpdateNow) {
 function watchServiceWorkerUpdates(registration) {
   if (!registration || !('serviceWorker' in navigator)) return;
 
+  // 只有用户点了"立即更新"才刷新页面；首次安装时 clients.claim() 也会触发 controllerchange，不能因此打断学习
+  let reloadOnControllerChange = false;
   const applyUpdate = () => {
     if (!registration.waiting) return;
     showUpdateBanner('发现新版本，点击立即更新。', () => {
+      reloadOnControllerChange = true;
       registration.waiting.postMessage('SKIP_WAITING');
     });
   };
@@ -2910,7 +2808,7 @@ function watchServiceWorkerUpdates(registration) {
   });
 
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    window.location.reload();
+    if (reloadOnControllerChange) window.location.reload();
   });
 }
 
@@ -2976,7 +2874,10 @@ function saveCustomPlans() {
   localStorage.setItem(CUSTOM_PLANS_KEY, JSON.stringify(customPlans));
 }
 
-function showCustomPlansView() {
+async function showCustomPlansView() {
+  // 计划的词数提示、范围校验和出题都依赖词库，先确保已加载
+  const okLib = await ensureLibraryBeforeAction();
+  if (!okLib) return;
   renderCustomPlansList();
   showOnlyView(dom.customPlansView);
 }
@@ -3002,7 +2903,7 @@ function renderCustomPlansList() {
   }
 
   dom.customPlansList.innerHTML = customPlans.map(plan => `
-    <div class="custom-plan-item" data-plan-id="${plan.id}">
+    <div class="custom-plan-item" data-plan-id="${escapeHtml(plan.id)}">
       <div class="plan-item-header">
         <div class="plan-item-name">${escapeHtml(plan.name)}</div>
         <div class="plan-item-badge">
@@ -3015,17 +2916,11 @@ function renderCustomPlansList() {
         ${plan.wordRange ? `<span>范围 ${plan.wordRange.start}-${plan.wordRange.end}</span>` : '<span>全部词汇</span>'}
       </div>
       <div class="plan-item-actions">
-        <button class="plan-action-btn plan-action-start" onclick="executeCustomPlan('${plan.id}')">开始学习</button>
-        <button class="plan-action-btn plan-action-delete" onclick="deleteCustomPlan('${plan.id}')">删除</button>
+        <button class="plan-action-btn plan-action-start" type="button" data-plan-action="start">开始学习</button>
+        <button class="plan-action-btn plan-action-delete" type="button" data-plan-action="delete">删除</button>
       </div>
     </div>
   `).join('');
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
 }
 
 function openCustomPlanModal(planId = null) {
@@ -3128,9 +3023,11 @@ function deleteCustomPlan(planId) {
   renderCustomPlansList();
 }
 
-function executeCustomPlan(planId) {
+async function executeCustomPlan(planId) {
   const plan = customPlans.find(p => p.id === planId);
   if (!plan) return;
+  const okLib = await ensureLibraryBeforeAction();
+  if (!okLib) return;
 
   // Update last used
   plan.lastUsed = new Date().toISOString();
@@ -3239,6 +3136,16 @@ function bindCustomPlanEvents() {
   if (dom.customPlanModal) {
     dom.customPlanModal.addEventListener('click', (e) => {
       if (e.target === dom.customPlanModal) closeCustomPlanModal();
+    });
+  }
+  if (dom.customPlansList) {
+    dom.customPlansList.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-plan-action]');
+      const item = btn && btn.closest('[data-plan-id]');
+      if (!item) return;
+      const planId = item.dataset.planId;
+      if (btn.dataset.planAction === 'start') executeCustomPlan(planId);
+      else if (btn.dataset.planAction === 'delete') deleteCustomPlan(planId);
     });
   }
 }

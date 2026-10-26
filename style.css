@@ -82,7 +82,7 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", Helvetica, Arial, sans-serif;
     background-color: var(--bg-primary);
     color: var(--text-primary);
     line-height: 1.5;
@@ -610,6 +610,7 @@ input[type="range"]::-webkit-slider-thumb {
 .field-content {
     color: var(--text-primary);
     display: block;
+    white-space: pre-line;
 }
 
 /* 旧样式兼容 */
