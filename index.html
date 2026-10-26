@@ -6,7 +6,7 @@
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
     <meta name="description" content="手机端背单词应用，支持闪卡、听音、拼写和图片选择模式。">
-    <meta name="theme-color" content="#0e7490">
+    <meta name="theme-color" content="#4F46E5">
     <meta name="application-name" content="背单词">
     <meta name="mobile-web-app-capable" content="yes">
     <!-- iOS PWA 支持 -->
@@ -33,17 +33,41 @@
     <div class="view view-dashboard" id="dashboardView">
         <div class="dashboard-container">
             <header class="dashboard-header">
-                <h1 class="app-title">📚 背单词</h1>
-                <p class="current-plan" id="currentPlan">当前计划：大学英语四级</p>
+                <img class="app-logo" src="./icon.svg" alt="" width="44" height="44">
+                <div class="dashboard-heading">
+                    <h1 class="app-title">背单词</h1>
+                    <p class="current-plan" id="currentPlan">当前计划：大学英语四级</p>
+                </div>
             </header>
 
-            <!-- 自定义计划入口 -->
-            <section class="custom-plan-entry">
-                <button class="custom-plan-btn" id="customPlanBtn" type="button">
-                    <span class="custom-plan-icon">📋</span>
-                    <span class="custom-plan-text">自定义学习计划</span>
-                    <span class="custom-plan-arrow">›</span>
-                </button>
+            <section class="today-card" aria-label="今日概览">
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="statLearned">0</div>
+                        <div class="stat-label">今日已学</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="statStreak">0</div>
+                        <div class="stat-label">连续天数</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="statTotal">0</div>
+                        <div class="stat-label">累计学习</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="quick-actions" id="quickActions">
+                <h2 class="section-title">快速练习</h2>
+                <button class="data-btn quick-resume-btn hidden" id="resumeSessionBtn" type="button">继续上次学习</button>
+                <div class="quick-start-grid">
+                    <button class="data-btn quick-action-btn" id="quickReviewBtn" type="button">只复习</button>
+                    <button class="data-btn quick-action-btn" id="quickNewBtn" type="button">只学新词</button>
+                    <button class="data-btn quick-action-btn" id="quickWrongBtn" type="button">只练错题</button>
+                    <button class="data-btn quick-action-btn" id="quickSpellingBtn" type="button">拼写速练</button>
+                    <button class="data-btn quick-action-btn" id="quickWrongSpellingBtn" type="button">错题拼写</button>
+                    <button class="data-btn quick-action-btn" id="quickWrongBookBtn" type="button">错题本</button>
+                </div>
             </section>
 
             <section class="book-selection">
@@ -74,66 +98,6 @@
                         </span>
                         <span class="book-check">✓</span>
                     </button>
-                </div>
-            </section>
-
-            <section class="settings-section">
-                <h2 class="section-title">学习设置</h2>
-                <div class="setting-item">
-                    <label for="dailyGoalSlider">每日新词数</label>
-                    <div class="setting-control">
-                        <input type="range" id="dailyGoalSlider" min="5" max="50" step="5" value="20">
-                        <span class="goal-value" id="dailyGoalValue">20</span>
-                    </div>
-                </div>
-                <div class="setting-item">
-                    <label for="reminderEnabledChk">每日学习提醒</label>
-                    <div class="setting-control">
-                        <input id="reminderEnabledChk" type="checkbox" aria-label="启用每日学习提醒">
-                        <input id="reminderTimeInput" type="time" value="20:00" aria-label="提醒时间">
-                    </div>
-                </div>
-            </section>
-
-            <section class="data-tools">
-                <h2 class="section-title">数据管理</h2>
-                <div class="data-actions">
-                    <button class="data-btn" id="exportDataBtn" type="button">导出备份</button>
-                    <button class="data-btn" id="importDataBtn" type="button">导入备份</button>
-                    <button class="data-btn" id="syncCodeExportBtn" type="button">生成同步码</button>
-                    <button class="data-btn" id="syncCodeImportBtn" type="button">导入同步码</button>
-                    <button class="data-btn" id="importWordsJsonBtn" type="button">导入词表JSON</button>
-                    <input id="backupFileInput" type="file" accept=".json,application/json" hidden>
-                    <input id="wordJsonInput" type="file" accept=".json,application/json" hidden>
-                </div>
-            </section>
-
-            <section class="install-tools hidden" id="installEntry">
-                <h2 class="section-title">手机下载</h2>
-                <div class="install-card">
-                    <div class="install-copy">
-                        <p class="install-title">下载 App 到手机桌面</p>
-                        <p class="install-tip" id="installTip">添加到主屏幕后可离线学习，进度保存在本机。</p>
-                    </div>
-                    <div class="install-actions">
-                        <button class="data-btn install-btn" id="installAppBtn" type="button">下载 App</button>
-                        <button class="install-dismiss-btn" id="installDismissBtn" type="button" aria-label="暂不显示安装提示">暂不显示</button>
-                    </div>
-                </div>
-            </section>
-
-            <section class="stats-grid">
-                <div class="stat-item">
-                    <div class="stat-value" id="statLearned">0</div>
-                    <div class="stat-label">今日已学</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value" id="statStreak">0</div>
-                    <div class="stat-label">连续天数</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value" id="statTotal">0</div>
-                    <div class="stat-label">累计学习</div>
                 </div>
             </section>
 
@@ -171,6 +135,33 @@
                 </div>
             </section>
 
+            <h2 class="section-title">学习设置</h2>
+            <section class="settings-section">
+                <div class="setting-item">
+                    <label for="dailyGoalSlider">每日新词数</label>
+                    <div class="setting-control">
+                        <input type="range" id="dailyGoalSlider" min="5" max="50" step="5" value="20">
+                        <span class="goal-value" id="dailyGoalValue">20</span>
+                    </div>
+                </div>
+                <div class="setting-item">
+                    <label for="reminderEnabledChk">每日学习提醒</label>
+                    <div class="setting-control">
+                        <input id="reminderEnabledChk" type="checkbox" aria-label="启用每日学习提醒">
+                        <input id="reminderTimeInput" type="time" value="20:00" aria-label="提醒时间">
+                    </div>
+                </div>
+            </section>
+
+            <h2 class="section-title">更多</h2>
+            <section class="custom-plan-entry">
+                <button class="custom-plan-btn" id="customPlanBtn" type="button">
+                    <span class="custom-plan-icon" aria-hidden="true">📋</span>
+                    <span class="custom-plan-text">自定义学习计划</span>
+                    <span class="custom-plan-arrow" aria-hidden="true">›</span>
+                </button>
+            </section>
+
             <section class="insight-section" id="insightSection" aria-live="polite">
                 <h2 class="section-title">学习洞察</h2>
                 <div class="insight-cards">
@@ -189,17 +180,33 @@
                 </div>
             </section>
 
-            <section class="quick-actions" id="quickActions">
-                <button class="data-btn quick-resume-btn hidden" id="resumeSessionBtn" type="button">继续上次学习</button>
-                <div class="quick-start-grid">
-                    <button class="data-btn quick-action-btn" id="quickReviewBtn" type="button">只复习</button>
-                    <button class="data-btn quick-action-btn" id="quickNewBtn" type="button">只学新词</button>
-                    <button class="data-btn quick-action-btn" id="quickWrongBtn" type="button">只练错题</button>
-                    <button class="data-btn quick-action-btn" id="quickSpellingBtn" type="button">拼写速练</button>
-                    <button class="data-btn quick-action-btn" id="quickWrongSpellingBtn" type="button">错题拼写</button>
-                    <button class="data-btn quick-action-btn" id="quickWrongBookBtn" type="button">错题本</button>
+            <section class="data-tools">
+                <h2 class="section-title">数据与同步</h2>
+                <div class="data-actions">
+                    <button class="data-btn" id="exportDataBtn" type="button">导出备份</button>
+                    <button class="data-btn" id="importDataBtn" type="button">导入备份</button>
+                    <button class="data-btn" id="syncCodeExportBtn" type="button">生成同步码</button>
+                    <button class="data-btn" id="syncCodeImportBtn" type="button">导入同步码</button>
+                    <button class="data-btn" id="importWordsJsonBtn" type="button">导入词表JSON</button>
+                    <input id="backupFileInput" type="file" accept=".json,application/json" hidden>
+                    <input id="wordJsonInput" type="file" accept=".json,application/json" hidden>
                 </div>
             </section>
+
+            <section class="install-tools hidden" id="installEntry">
+                <h2 class="section-title">手机下载</h2>
+                <div class="install-card">
+                    <div class="install-copy">
+                        <p class="install-title">下载 App 到手机桌面</p>
+                        <p class="install-tip" id="installTip">添加到主屏幕后可离线学习，进度保存在本机。</p>
+                    </div>
+                    <div class="install-actions">
+                        <button class="data-btn install-btn" id="installAppBtn" type="button">下载 App</button>
+                        <button class="install-dismiss-btn" id="installDismissBtn" type="button" aria-label="暂不显示安装提示">暂不显示</button>
+                    </div>
+                </div>
+            </section>
+
             <button class="start-btn" id="startSessionBtn" type="button">
                 <span class="start-btn-icon">▶</span>
                 <span class="start-btn-text">开始今日学习</span>
@@ -359,19 +366,19 @@
 
             <div class="picture-options" id="pictureOptions">
                 <button class="picture-option" type="button" data-index="0">
-                    <span class="picture-emoji">🎯</span>
+                    <span class="picture-emoji" aria-hidden="true">1</span>
                     <span class="picture-text">选项1</span>
                 </button>
                 <button class="picture-option" type="button" data-index="1">
-                    <span class="picture-emoji">🎨</span>
+                    <span class="picture-emoji" aria-hidden="true">2</span>
                     <span class="picture-text">选项2</span>
                 </button>
                 <button class="picture-option" type="button" data-index="2">
-                    <span class="picture-emoji">📚</span>
+                    <span class="picture-emoji" aria-hidden="true">3</span>
                     <span class="picture-text">选项3</span>
                 </button>
                 <button class="picture-option" type="button" data-index="3">
-                    <span class="picture-emoji">🧭</span>
+                    <span class="picture-emoji" aria-hidden="true">4</span>
                     <span class="picture-text">选项4</span>
                 </button>
             </div>

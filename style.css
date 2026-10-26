@@ -23,6 +23,13 @@
 
     --ios-separator: #C6C6C8;
 
+    /* 品牌色（与图标一致的靛蓝）：--accent 用于填充，--accent-text 用于文字 */
+    --accent: #4F46E5;
+    --accent-strong: #4338CA;
+    --accent-rgb: 79, 70, 229;
+    --accent-text: #4F46E5;
+    --accent-soft: rgba(79, 70, 229, 0.1);
+
     /* Mapping to App Variables */
     --bg-primary: var(--ios-bg-primary);
     --bg-secondary: var(--ios-bg-secondary);
@@ -31,7 +38,7 @@
     --text-primary: var(--ios-text-primary);
     --text-secondary: var(--ios-text-secondary);
     --text-muted: var(--ios-text-secondary);
-    --text-accent: var(--ios-blue);
+    --text-accent: var(--accent-text);
 
     --btn-unknown: var(--ios-red);
     --btn-fuzzy: var(--ios-orange);
@@ -68,6 +75,12 @@
         --ios-text-tertiary: #48484A;
 
         --ios-separator: #38383A;
+
+        --accent: #6366F1;
+        --accent-strong: #4F46E5;
+        --accent-rgb: 99, 102, 241;
+        --accent-text: #A5B4FC;
+        --accent-soft: rgba(129, 140, 248, 0.16);
 
         --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         --modal-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
@@ -180,7 +193,7 @@ button {
 
 .progress-fill {
     height: 100%;
-    background: var(--ios-blue);
+    background: var(--accent);
     border-radius: var(--radius-full);
     transition: width 0.3s ease;
 }
@@ -240,7 +253,7 @@ button {
 }
 
 .book-card.selected .book-name {
-    color: var(--ios-blue);
+    color: var(--accent-text);
 }
 
 .book-card.selected .book-check {
@@ -271,7 +284,7 @@ button {
 }
 
 .book-check {
-    color: var(--ios-blue);
+    color: var(--accent-text);
     font-weight: 600;
     opacity: 0;
     transform: scale(0.8);
@@ -316,7 +329,7 @@ button {
     right: 10px;
     width: 8px;
     height: 8px;
-    background: var(--ios-blue);
+    background: var(--accent);
     border-radius: 50%;
 }
 
@@ -419,7 +432,7 @@ input[type="range"]::-webkit-slider-thumb {
     width: 90%;
     max-width: 400px;
     height: 56px;
-    background: var(--ios-blue);
+    background: var(--accent);
     color: white;
     border-radius: 28px;
     font-size: 17px;
@@ -428,14 +441,14 @@ input[type="range"]::-webkit-slider-thumb {
     align-items: center;
     justify-content: center;
     gap: var(--spacing-sm);
-    box-shadow: 0 8px 20px rgba(0, 122, 255, 0.3);
+    box-shadow: 0 8px 20px rgba(var(--accent-rgb), 0.3);
     z-index: 1000;
     transition: transform 0.2s, background 0.2s;
 }
 
 .start-btn:active {
     transform: translateX(-50%) scale(0.96);
-    background: #0062CC;
+    background: var(--accent-strong);
 }
 
 .start-btn-icon {
@@ -651,7 +664,7 @@ input[type="range"]::-webkit-slider-thumb {
 .play-btn {
     width: 44px;
     height: 44px;
-    background: var(--ios-blue);
+    background: var(--accent);
     color: white;
     border-radius: 50%;
     display: flex;
@@ -659,7 +672,7 @@ input[type="range"]::-webkit-slider-thumb {
     justify-content: center;
     margin: var(--spacing-md) auto;
     font-size: 20px;
-    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+    box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.3);
 }
 
 .word-meaning {
@@ -762,7 +775,7 @@ input[type="range"]::-webkit-slider-thumb {
     height: 40px;
     background: var(--bg-secondary);
     border-radius: 50%;
-    color: var(--ios-blue);
+    color: var(--accent-text);
     margin-top: 10px;
     box-shadow: var(--card-shadow);
 }
@@ -791,8 +804,18 @@ input[type="range"]::-webkit-slider-thumb {
     background: var(--bg-tertiary);
 }
 
+/* 选项序号徽标，对应键盘快捷键 1-4 */
 .picture-emoji {
-    font-size: 48px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent-text);
+    font-size: 15px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .picture-text {
@@ -825,10 +848,10 @@ input[type="range"]::-webkit-slider-thumb {
     height: 100px;
     border-radius: 50px;
     /* iOS-style big button */
-    background: var(--ios-blue);
+    background: var(--accent);
     color: white;
     font-size: 40px;
-    box-shadow: 0 10px 30px rgba(0, 122, 255, 0.4);
+    box-shadow: 0 10px 30px rgba(var(--accent-rgb), 0.4);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -938,7 +961,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .char-box.current {
-    border-bottom-color: var(--ios-blue);
+    border-bottom-color: var(--accent);
 }
 
 .char-box.correct {
@@ -1144,7 +1167,7 @@ textarea {
     font-size: 17px;
     font-weight: 500;
     background: transparent;
-    color: var(--ios-blue);
+    color: var(--accent-text);
 }
 
 .modal-btn:active {
@@ -1172,7 +1195,7 @@ textarea {
 .spelling-audio-btn {
     width: 56px;
     height: 56px;
-    background: var(--ios-blue);
+    background: var(--accent);
     color: white;
     border-radius: 50%;
     font-size: 24px;
@@ -1180,7 +1203,7 @@ textarea {
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+    box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.3);
     transition: transform 0.2s;
 }
 
@@ -1215,7 +1238,7 @@ textarea {
 }
 
 .spelling-char.current {
-    border-bottom-color: var(--ios-blue);
+    border-bottom-color: var(--accent);
     animation: pulse 1s infinite;
 }
 
@@ -1342,7 +1365,7 @@ textarea {
 .goal-value {
     font-size: 17px;
     font-weight: 600;
-    color: var(--ios-blue);
+    color: var(--accent-text);
     min-width: 28px;
     text-align: center;
 }
@@ -1530,9 +1553,9 @@ body {
 
 .quick-resume-btn {
     width: 100%;
-    background: rgba(0, 122, 255, 0.12);
-    color: var(--ios-blue);
-    border: 1px solid rgba(0, 122, 255, 0.24);
+    background: rgba(var(--accent-rgb), 0.12);
+    color: var(--accent-text);
+    border: 1px solid rgba(var(--accent-rgb), 0.24);
     font-size: 15px;
 }
 
@@ -1575,7 +1598,7 @@ body {
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible {
-    outline: 2px solid var(--ios-blue);
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
 }
 
@@ -1698,7 +1721,7 @@ textarea:focus-visible {
 .insight-bar {
     width: 100%;
     border-radius: 8px 8px 4px 4px;
-    background: linear-gradient(180deg, rgba(0, 122, 255, 0.92), rgba(90, 200, 250, 0.86));
+    background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.92), rgba(var(--accent-rgb), 0.55));
     min-height: 8px;
 }
 
@@ -1995,7 +2018,7 @@ input[type="time"] {
     border-radius: 10px;
     font-size: 13px;
     font-weight: 700;
-    background: var(--ios-blue);
+    background: var(--accent);
     color: #fff;
 }
 
@@ -2176,8 +2199,8 @@ body.is-offline .view {
 }
 
 .plan-badge-book {
-    background: rgba(0, 122, 255, 0.1);
-    color: var(--ios-blue);
+    background: rgba(var(--accent-rgb), 0.1);
+    color: var(--accent-text);
 }
 
 .plan-badge-mode {
@@ -2208,12 +2231,12 @@ body.is-offline .view {
 }
 
 .plan-action-start {
-    background: var(--ios-blue);
+    background: var(--accent);
     color: white;
 }
 
 .plan-action-start:active {
-    background: #0062CC;
+    background: var(--accent-strong);
 }
 
 .plan-action-delete {
@@ -2306,7 +2329,7 @@ body.is-offline .view {
     text-align: center;
     font-size: 18px;
     font-weight: 700;
-    color: var(--ios-blue);
+    color: var(--accent-text);
 }
 
 .plan-range-control {
@@ -2356,9 +2379,9 @@ body.is-offline .view {
 }
 
 .custom-plan-modal .modal-btn-confirm {
-    background: var(--ios-blue);
+    background: var(--accent);
     color: white;
-    border-color: var(--ios-blue);
+    border-color: var(--accent);
 }
 
 /* iOS 触摸优化 */
@@ -2378,4 +2401,274 @@ body.is-offline .view {
         font-size: 16px;
         /* 防止 iOS 缩放 */
     }
+}
+
+/* ========================================
+   首页 UI 刷新：统一品牌色、卡片对齐、"今日"概览置顶
+   ======================================== */
+.view-dashboard {
+    padding-top: calc(28px + env(safe-area-inset-top));
+}
+
+.dashboard-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-left: var(--spacing-sm);
+}
+
+.app-logo {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.3);
+    flex-shrink: 0;
+}
+
+.dashboard-heading .app-title {
+    font-size: 28px;
+    line-height: 1.2;
+    margin: 0;
+    padding: 0;
+}
+
+.dashboard-heading .current-plan {
+    font-size: 14px;
+    margin: 2px 0 0;
+    padding: 0;
+}
+
+.view-dashboard .section-title {
+    font-size: 13px;
+    text-transform: none;
+    letter-spacing: 0;
+    margin: 28px 0 8px var(--spacing-sm);
+}
+
+/* 今日概览 */
+.today-card {
+    margin-top: 20px;
+}
+
+.today-card .stats-grid {
+    margin: 0;
+    gap: 0;
+    padding: 18px 4px;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(135deg, #6366F1 0%, #4338CA 100%);
+    box-shadow: 0 10px 24px rgba(67, 56, 202, 0.28);
+}
+
+.today-card .stat-item {
+    background: transparent;
+    box-shadow: none;
+    padding: 0 8px;
+    border-radius: 0;
+}
+
+.today-card .stat-item + .stat-item {
+    border-left: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.today-card .stat-value {
+    color: #FFFFFF;
+    font-size: 28px;
+    line-height: 1.2;
+}
+
+.today-card .stat-label {
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 12px;
+    text-transform: none;
+}
+
+/* 快速练习：手机上保持三列，避免变成一长列 */
+.view-dashboard .quick-actions {
+    margin-top: 0;
+}
+
+.view-dashboard .quick-resume-btn {
+    margin-bottom: 10px;
+}
+
+.view-dashboard .quick-start-grid {
+    margin-top: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.view-dashboard .quick-action-btn {
+    min-height: 48px;
+    padding: 6px 4px;
+    background: var(--bg-secondary);
+    box-shadow: var(--card-shadow);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+/* 词书：名称和词数上下排列、左对齐 */
+.view-dashboard .book-card {
+    text-align: left;
+    color: var(--text-primary);
+}
+
+.view-dashboard .book-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.view-dashboard .book-name,
+.view-dashboard .book-meta {
+    display: block;
+}
+
+.view-dashboard .book-card.selected {
+    background: var(--accent-soft);
+}
+
+.view-dashboard .book-card.selected .book-name {
+    font-weight: 600;
+}
+
+/* 学习模式：独立卡片，选中用描边 + 浅底色表示 */
+.view-dashboard .mode-cards {
+    background: transparent;
+    gap: 10px;
+    overflow: visible;
+    border-radius: 0;
+}
+
+.view-dashboard .mode-card {
+    border-radius: 16px;
+    border: 1.5px solid transparent;
+    padding: 16px 12px;
+    gap: 6px;
+    box-shadow: var(--card-shadow);
+    color: var(--text-primary);
+}
+
+.view-dashboard .mode-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.view-dashboard .mode-icon {
+    font-size: 26px;
+    width: 48px;
+    height: 48px;
+    margin: 0;
+    border-radius: 14px;
+    background: var(--bg-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.view-dashboard .mode-card.selected {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+}
+
+.view-dashboard .mode-card.selected::after {
+    content: none;
+}
+
+.view-dashboard .mode-card.selected .mode-name {
+    color: var(--accent-text);
+}
+
+/* 学习设置：标题放到卡片外，与其他分组对齐 */
+.view-dashboard .settings-section {
+    padding: 0 var(--spacing-md);
+}
+
+.view-dashboard .setting-item {
+    min-height: 56px;
+    gap: 12px;
+}
+
+.view-dashboard .setting-item + .setting-item {
+    border-top: 1px solid var(--ios-separator);
+}
+
+.view-dashboard .setting-item label {
+    flex-shrink: 0;
+}
+
+.view-dashboard .setting-control {
+    justify-content: flex-end;
+    margin-left: 0;
+}
+
+/* 自定义计划：普通列表行，不再用与主色冲突的紫色横幅 */
+.view-dashboard .custom-plan-entry {
+    margin-bottom: 0;
+}
+
+.view-dashboard .custom-plan-btn {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    box-shadow: var(--card-shadow);
+    padding: 14px 16px;
+}
+
+.view-dashboard .custom-plan-btn:active {
+    background: var(--bg-tertiary);
+    box-shadow: var(--card-shadow);
+}
+
+.view-dashboard .custom-plan-icon {
+    font-size: 20px;
+}
+
+.view-dashboard .custom-plan-text {
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.view-dashboard .custom-plan-arrow {
+    color: var(--text-secondary);
+}
+
+/* 学习洞察：模式表现一行四格 */
+.view-dashboard .insight-section {
+    margin-top: 0;
+}
+
+.view-dashboard .insight-mode-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.view-dashboard .insight-mode-item {
+    text-align: center;
+    padding: 8px 4px;
+}
+
+.view-dashboard .insight-bar {
+    opacity: 0.9;
+}
+
+/* 数据与同步：最后一个按钮占满一行 */
+.view-dashboard #importWordsJsonBtn {
+    grid-column: 1 / -1;
+}
+
+/* 开始按钮：与概览卡同色 */
+.start-btn {
+    background: linear-gradient(135deg, #6366F1 0%, #4338CA 100%);
+    box-shadow: 0 10px 24px rgba(67, 56, 202, 0.35);
+}
+
+.start-btn:active {
+    background: var(--accent-strong);
+}
+
+/* 没有学习记录的日子用灰色占位，避免看起来像有数据 */
+.insight-bar.is-empty {
+    background: var(--bg-tertiary);
+    opacity: 1;
 }
