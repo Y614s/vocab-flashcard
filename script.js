@@ -21,7 +21,6 @@ const SM2_DEFAULT_EASE = Number(CORE_DEFAULTS.sm2DefaultEase) || 2.5;
 const SM2_MAX_INTERVAL_DAYS = Number(CORE_DEFAULTS.sm2MaxIntervalDays) || 120;
 const WRONG_PAGE_SIZE = 30;
 const MODES = new Set(['flashcard', 'picture', 'listening', 'spelling']);
-const PICTURE_EMOJIS = ['🧩', '🎯', '📚', '🧠', '🔍', '🌟', '🧭', '📝', '🎨', '🪄'];
 let customPlans = [];
 let editingPlanId = null;
 
@@ -330,7 +329,8 @@ function renderInsights() {
   const maxVal = Math.max(1, ...days.map((x) => x.value));
   dom.insightChart7d.innerHTML = days.map((x) => {
     const h = Math.max(8, Math.round((x.value / maxVal) * 52));
-    return `<div class="insight-bar" style="height:${h}px" title="${escapeHtml(x.day)}: ${x.value}"></div>`;
+    const cls = x.value > 0 ? 'insight-bar' : 'insight-bar is-empty';
+    return `<div class="${cls}" style="height:${h}px" title="${escapeHtml(x.day)}: ${x.value}"></div>`;
   }).join('');
 
   const list30 = studyLogSummary(30);
@@ -1475,6 +1475,7 @@ async function ensureLibraryBeforeAction() {
   if (vocabLibraryReady) return true;
   showSessionToast('正在加载词库...');
   await ensureVocabLibraryLoaded();
+  if (vocabLibraryReady && dom.sessionToast) dom.sessionToast.classList.add('hidden');
   if (!vocabLibraryReady) {
     alert('词库加载失败，请检查网络后重试。');
     return false;
@@ -2216,7 +2217,7 @@ function loadPictureWord() {
   dom.pictureOptions.querySelectorAll('.picture-option').forEach((btn, i) => {
     btn.classList.remove('correct', 'wrong', 'disabled');
     const t = btn.querySelector('.picture-text'); if (t) t.textContent = pictureOptions[i] ? pictureOptions[i].definition : '';
-    const e = btn.querySelector('.picture-emoji'); if (e) e.textContent = PICTURE_EMOJIS[(sessionIndex + i) % PICTURE_EMOJIS.length];
+    const e = btn.querySelector('.picture-emoji'); if (e) e.textContent = String(i + 1);
   });
 }
 
